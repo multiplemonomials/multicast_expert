@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "multicast_expert"
+version = "1.0.0"
+description = "A library to take the fiddly parts out of multicast networking!"
+authors = ["Jamie Smith <jsmith@crackofdawn.onmicrosoft.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+netifaces = "^0.10.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
