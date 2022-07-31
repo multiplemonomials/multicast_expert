@@ -40,12 +40,11 @@ LOCALHOST_IPV6 = "::1"
 
 # Utility functions
 # ------------------------------------------------------------------------------------------------------
-from .utils import get_interface_ips, get_default_gateway_iface_ip_v4, get_default_gateway_iface_ip_v6
+from .utils import get_interface_ips
+from .utils import get_default_gateway_iface_ip_v4
+from .utils import get_default_gateway_iface_ip_v6
+from .utils import MulticastExpertError
 
 # Transmit socket
 # ------------------------------------------------------------------------------------------------------
-
-class McastTxSocket:
-
-    def __init__(self):
-        pass
+from .tx_socket import McastTxSocket

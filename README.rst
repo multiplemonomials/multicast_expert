@@ -1,9 +1,14 @@
 ###########################
 Multicast Expert for Python
 ###########################
-Multicasting is one of the cooler features of Internet Protocol (IP).  It allows a single source to send out IP packets (usually UDP) which are then received by multiple other devices on the network.  No configuration in advance is needed -- the sender just sends packets, and other devices may subscribe to these packets at their leisure.  Using a protocol called IGMP, computers and network switches communicate to ensure that the multicasts are only sent where they are needed, and not anywhere else.  It's great for audiovisual and scientific applications where you need to send out data to many different machines on a network.
 
-Of course, in practice, things are a bit more complicated -- chiefly because using multicast requires setting additional socket options whose values and formats often differ by OS.  To that end, this library was created, to aid in setting up multicast networking without having to mess around with low level OS stuff.
+.. warning::
+    Under construction as of 7-30-2022
+
+
+Multicasting is one of the cooler features of Internet Protocol (IP).  It allows a single source to send out IP packets (usually UDP) which are then received by multiple other devices on the network.  No configuration in advance is needed -- the sender just sends packets, and other devices may subscribe to these packets at their leisure.  Using a protocol called IGMP, computers and network switches communicate to ensure that the multicasts are only sent where they are needed, and not anywhere else.  It's great for applications such as audio/video transmission or distributed systems where you need to send out data to many different machines on a network.
+
+Of course, in practice, things are a bit more complicated -- chiefly because using multicast requires setting additional socket options whose values and formats often differ by OS.  To that end, this library was created, so that you can multicast networking without having to mess around with low level OS stuff.
 
 *******************
 Multicasting Basics
@@ -21,7 +26,7 @@ A multicast IPv4 address is defined as any IPv4 address whose most significant f
 
 When a network interface (e.g. your Ethernet card) sees a packet going to a multicast IP address, it processes it differently.  The exact specifics are outside of the scope of this document and depend on the specific medium, but often it will mark that packet as multicast at the link layer too, e.g. by giving it a special destination MAC address.  This ensures that the packet is delivered correctly by the link layer.
 
-If you are simply trying to receive existing multicast packets, all you need to do is open a multicast_expert socket with the multicast address of the protocol you're using.  But if you're trying to build your own application that communicates via multicast, you'll need to select an IPv4 or IPv6 multicast address to use for it.  Many of these addresses have to be officially assigned by IANA (the `wikipedia page on multicast addresses <https://en.wikipedia.org/wiki/Multicast_address#IPv6>`_ has the full details), though it's worth knowing that IP addresses in the 239.x.x.x range are "administratively scoped" and available for private use on LANs.
+If you are simply trying to receive existing multicast packets, all you need to do is open a multicast_expert socket with the multicast address of the protocol you're using.  But if you're trying to build your own application that communicates via multicast, you'll need to select an IPv4 or IPv6 multicast address to use for it.  Many of these addresses have to be officially assigned by IANA (the `wikipedia page on multicast addresses <https://en.wikipedia.org/wiki/Multicast_address#IPv4>`_ has the full details), though it's worth knowing that IP addresses in the 239.x.x.x range are "administratively scoped" and available for private use on LANs.
 
 Multicast Routing in Networks
 =============================
@@ -48,3 +53,40 @@ Router                                    Depends on configuration, often drops.
 
     Since lots of devices come with weird multicast settings out of the box, prepare to have to check and fix the configuration on each switch/device when you start using multicast on your network.
 
+Sending Multicasts
+===================
+
+Receiving Multicasts
+====================
+
+**********************
+Using Multicast Expert
+**********************
+
+Now let's get into some actual code examples.  Now first, before we can create any sockets, we need to find the interface address we want to use (see above).  Luckily, Multicast Expert comes with a convenient function to list all available network interfaces:
+
+>>> import multicast_expert
+>>> multicast_expert.get_interface_ips(include_ipv4=True, include_ipv6=False)
+['192.168.0.248', '192.168.153.1', '127.0.0.1']
+
+(note that this functionality is a wrapper around the netifaces library, which provides quite a bit more functionality if you need it)
+
+But which of those is the interface we actually want to use?  Well, that depends on your specific nework setup, but to make an educated guess, we also have a function to get the interface your machine uses to contact the internet.  This is not always correct but will work for many network setups.
+
+>>> multicast_expert.get_default_gateway_iface_ip_v4()
+'192.168.0.248'
+
+Transmitting Multicasts
+=======================
+
+To send some data to a multicast, use the McastTxSocket class.  This wraps a socket internally, and does all the hard work of configuring it correctly for multicast.  For now we will use '239.1.2.3' as our multicast address since it's in the administratively scoped block.
+
+The following block shows how to create a socket which sends multicasts.
+
+>>> import socket
+>>> with multicast_expert.McastTxSocket(socket.AF_INET, mcast_ips=['239.1.2.3'], iface_ip='192.168.0.248') as mcast_sock:
+...     mcast_sock.sendto(b'Hello World', ('239.1.2.3', 12345))
+
+Note: when you construct the socket, you have to pass in all of the multicast IPs that you will want to use the socket to send to.  These must be known in advance in order to configure socket options correctly.
+
+Note 2: If you omitted the iface_ip= argument, the get_default_gateway_iface_ip_v4() function would have been called to guess the iface ip.

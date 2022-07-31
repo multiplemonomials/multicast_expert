@@ -1,16 +1,16 @@
 [tool.poetry]
 name = "multicast_expert"
-version = "1.0.0"
+version = "0.0.1"
 description = "A library to take the fiddly parts out of multicast networking!"
 authors = ["Jamie Smith <jsmith@crackofdawn.onmicrosoft.com>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "^3.7"
-netifaces = "^0.10.0"
+python = "^3.8" # Need Python 3.8 for socket.IPPROTO_IPV6
+netifaces = "0.*"
 
 [tool.poetry.dev-dependencies]
-pytest = "^5.2"
+pytest = "^6.2"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
