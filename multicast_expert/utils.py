@@ -1,21 +1,14 @@
 import socket
-import struct
-import platform
-import ctypes
+from typing import List, Dict, Optional
+import ipaddress
 
 import netifaces
-from typing import List, Dict, Optional
-
-# Import needed Win32 DLL functions
-if platform.system() == "Windows":
-    iphlpapi = ctypes.WinDLL('iphlpapi')
-    win32_GetAdapterIndex = iphlpapi.GetAdapterIndex
-    win32_GetAdapterIndex.argtypes = [ctypes.c_wchar_p, ctypes.POINTER(ctypes.c_ulong)]
 
 
 # Exception class for this library
-def MulticastExpertError(RuntimeError):
+class MulticastExpertError(RuntimeError):
     pass
+
 
 def get_interface_ips(include_ipv4=True, include_ipv6=True) -> List[str]:
     """
@@ -91,49 +84,17 @@ def get_default_gateway_iface_ip(addr_family: int) -> Optional[str]:
     return interface_addresses[addr_family][0]["addr"]
 
 
-def make_ip_mreq_struct(mcast_addr: str, iface_addr: str) -> bytes:
+def validate_mcast_ip(mcast_ip: str, addr_family: int):
     """
-    Generates an ip_mreq structure (used for setsockopt) from two string IP addresses.
+    Validate that the given mcast_ip is a valid multicast address in the given addr family (IPv4 or IPv6).
+    An exception is thrown if validation fails.
     """
-    return struct.pack('4s4s', socket.inet_aton(mcast_addr), socket.inet_aton(iface_addr))
+    address_obj = ipaddress.ip_address(mcast_ip)
+    if not address_obj.is_multicast:
+        raise MulticastExpertError("mcast_ip %s is not a multicast address!" % (mcast_ip,))
 
+    if address_obj is ipaddress.IPv4Address and addr_family == socket.AF_INET6:
+        raise MulticastExpertError("mcast_ip %s is IPv4 but this is an AF_INET6 socket!" % (mcast_ip,))
 
-def iface_ip_to_index(iface_ip: str) -> int:
-    """
-    Convert a network interface's interface IP into its interface index.
-    """
-
-    # First, go from IP to interface name using netifaces.  To do that, we have to iterate through
-    # all of the machine's interfaces
-    iface_name = None
-    for interface in netifaces.interfaces():
-        addresses_at_each_level = netifaces.ifaddresses(interface)
-        for address_family in [netifaces.AF_INET, netifaces.AF_INET6]:
-            if address_family in addresses_at_each_level:
-                for address in addresses_at_each_level[address_family]:
-                    if address["addr"] == iface_ip:
-                        iface_name = interface
-
-    if iface_name is None:
-        raise KeyError("Could not find network address with local IP " + iface_ip)
-
-    # Now, go from interface name to its index
-    if platform.system() == "Windows":
-
-        # To get the if index on Windows we have to use the GetAdapterIndex() function.
-        # docs here: https://docs.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadapterindex
-
-        if_idx = ctypes.c_ulong() # value is returned here
-
-        # For reasons I don't really understand, this string has to be prepended to the names returned by netifaces
-        # in order for the win32 API to recognize them.
-        iface_name_string = ctypes.c_wchar_p("\\DEVICE\\TCPIP_" + iface_name)
-
-        ret = win32_GetAdapterIndex(iface_name_string, ctypes.byref(if_idx))
-        if ret != 0:
-            raise ctypes.WinError(ret, "GetAdapterIndex() failed")
-
-        return if_idx.value
-    else:
-        # Unix implementation is easy, we can just use the socket function
-        return socket.if_nameindex(iface_name)
+    if address_obj is ipaddress.IPv6Address and addr_family == socket.AF_INET:
+        raise MulticastExpertError("mcast_ip %s is IPv6 but this is an AF_INET socket!" % (mcast_ip,))

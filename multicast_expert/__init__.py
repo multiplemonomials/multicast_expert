@@ -48,3 +48,7 @@ from .utils import MulticastExpertError
 # Transmit socket
 # ------------------------------------------------------------------------------------------------------
 from .tx_socket import McastTxSocket
+
+# Receive socket
+# ------------------------------------------------------------------------------------------------------
+from .rx_socket import McastRxSocket

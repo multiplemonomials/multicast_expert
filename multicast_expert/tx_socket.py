@@ -4,13 +4,12 @@ import struct
 from typing import List, Tuple
 import ctypes
 
-from .utils import get_interface_ips, make_ip_mreq_struct, iface_ip_to_index, get_default_gateway_iface_ip, MulticastExpertError
-
-is_windows = platform.system() == "Windows"
+from .utils import get_interface_ips, validate_mcast_ip, get_default_gateway_iface_ip, MulticastExpertError
+from . import os_multicast
 
 class McastTxSocket:
     """
-    Class to wrap a socket that sends to a multicast group.
+    Class to wrap a socket that sends to one or more multicast groups.
     """
 
     def __init__(self, addr_family: int, mcast_ips: List[str], iface_ip: str=None, ttl: int=1):
@@ -43,44 +42,24 @@ class McastTxSocket:
                 raise MulticastExpertError("iface_ip not specified but unable to determine the default gateway on this machine")
 
         # Sanity check that the iface_ip actually exists
-        if iface_ip_to_index(self.iface_ip) is None:
+        if os_multicast.iface_ip_to_index(self.iface_ip) is None:
             raise MulticastExpertError("iface_ip %s does not seem to correspond to a valid interface.  Valid interfaces: %s" %
                                        (self.iface_ip, ", ".join(get_interface_ips())))
 
+        # Sanity check multicast addresses
+        for mcast_ip in self.mcast_ips:
+            validate_mcast_ip(mcast_ip, self.addr_family)
+
     def __enter__(self):
         if self.is_opened:
-            raise MulticastExpertError("Attempt to open a McastTxSocket that is already open!")
+            raise MulticastExpertError("Attempt to open an McastTxSocket that is already open!")
 
         # Open the socket and set options
         self.socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
+        self.socket.bind((self.iface_ip, 0)) # Bind to any available port
 
         # Use the IP_MULTICAST_IF option to set the interface to use.
-        if is_windows:
-            iface_index = iface_ip_to_index(self.iface_ip)
-
-            # On Windows, IP_MULTICAST_IF takes just the interface index
-            # See docs here: https://docs.microsoft.com/en-us/windows/win32/winsock/ipproto-ip-socket-options
-            if self.addr_family == socket.AF_INET:
-                # IPv4 is in *network* byte order
-                self.socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, struct.pack("!I", iface_index))
-            else: # IPv6
-                # IPv6 is in *host* byte order
-                self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_IF, struct.pack("I", iface_index))
-
-        else:
-            if self.addr_family == socket.AF_INET:
-                # On Linux/Mac IPv4, IP_MULTICAST_IF takes an ip_mreq struct and needs to be specified for each
-                # multicast address that we're sending to.
-                for ip in self.mcast_ips:
-                    self.socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, make_ip_mreq_struct(ip, self.iface_ip))
-            else: # IPv6
-                # On Linux/Mac IPv6, we have to pass a _pointer to_ the if index.  Yeah, you heard that right, a pointer.
-                # So, some additional hijinks are required
-                iface_index_int = ctypes.c_int(iface_ip_to_index(self.iface_ip))
-                iface_index_ptr = ctypes.pointer(iface_index_int)
-                ifact_index_address = ctypes.addressof(iface_index_ptr)
-
-                self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_IF, struct.pack("P", ifact_index_address))
+        os_multicast.set_multicast_if(self.socket, self.mcast_ips, self.iface_ip, self.addr_family)
 
         # Now set the time-to-live (thank goodness, this is the same on all platforms)
         if self.addr_family == socket.AF_INET:
@@ -92,11 +71,10 @@ class McastTxSocket:
 
         return self
 
-
     def __exit__(self, exc_type, exc_val, exc_tb):
 
         if not self.is_opened:
-            raise MulticastExpertError("Attempt to clost a McastTxSocket that is already closed!")
+            raise MulticastExpertError("Attempt to close an McastTxSocket that is already closed!")
 
         # Close socket
         self.socket.close()
@@ -115,3 +93,15 @@ class McastTxSocket:
             raise MulticastExpertError("The given destination address (%s) was not one of the addresses given for this McastTxSocket to transmit to!" % (address[0], ))
 
         self.socket.sendto(bytes, address)
+
+    def fileno(self) -> int:
+        """
+        Get the file descriptor for this socket.
+        """
+        return self.socket.fileno()
+
+    def getsockname(self) -> Tuple[str, int]:
+        """
+        Get the local IP and port that this socket bound itself to.
+        """
+        return self.socket.getsockname()
