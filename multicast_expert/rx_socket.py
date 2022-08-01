@@ -18,9 +18,9 @@ class McastRxSocket:
         Create a socket which receives UDP datagrams over multicast.  The socket must be opened
         (e.g. using a with statement) before it can be used.
 
-        Note: This socket is basically a regular UDP socket with some extra logic to send the appropriate multicast
-        join messages.  So, it can still receive non-multicast UDP packets if they arrive at the correct port
-        over the correct interface.
+        Note: This socket can only receive multicast traffic, not regular unicast traffic.
+
+        Note 2: 
 
         :param addr_family: Sets IPv4 or IPv6 operation.  Either socket.AF_INET or socket.AF_INET6.
         :param mcast_ips: List of all possible multicast IPs that this socket can receive from.
@@ -75,12 +75,14 @@ class McastRxSocket:
         self.socket.setblocking(self.blocking)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        # Bind to the interface address that we want to receive on.
-        # This approach should work on both Windows and Unix.
-        # Suggested here: https://www.reddit.com/r/networking/comments/7nketv/comment/ds3fge9/?utm_source=share&utm_medium=web2x&context=3
-        # Note that this does have one downside: Normal unicast traffic to the same host, port and interface will be received too by this socket.
-        # Binding to the multicast address instead would solve that, but then we would need a different socket for each multicast address.
-        self.socket.bind((self.iface_ip, self.port))
+        # As for the bind address, we basically have two options for Linux.
+        # Option 1: Bind to INADDR_ANY.  On Linux, this allows all UDP traffic coming in to the machine, on that port,
+        # from any interface, to be recieved by the socket.  This is bad because it means that traffic from other interfaces can potentially
+        # enter the socket.
+        # Option 2: Bind to individual multicast address.  This makes Linux act like Windows, but Linux can only bind to one 
+        # mcast address per socket so we need multiple sockets.  
+        # NOTE: Maybe the cleanest option would be to just bind to the interface address, and this works on Windows, but Linux doesn't support that.
+        self.socket.bind(("", self.port))
 
         if self.is_source_specific:
             os_multicast.add_source_specific_memberships(self.socket, self.mcast_ips, self.source_ips, self.iface_ip)

@@ -4,7 +4,7 @@ import pytest
 
 # Test constants
 mcast_address_v4 = '239.2.2.2'
-mcast_address_v6 = 'ff18::abcd'
+mcast_address_v6 = 'ff11::abcd'
 test_string = b'Test of Multicast!'
 port = 12345
 
@@ -93,6 +93,10 @@ def test_v4_loopback():
     Check that a packet can be sent to the loopback address and received using IPv4 multicast.
     """
 
+    # This test requires a route to be set up to enable transmission of multicasts on loopback:
+    # sudo ip route add 239.2.2.2/32 dev lo
+
+
     with multicast_expert.McastRxSocket(socket.AF_INET,
                                         mcast_ips=[mcast_address_v4],
                                         port=port,
@@ -102,8 +106,8 @@ def test_v4_loopback():
         mcast_rx_sock.settimeout(1.0)
 
         with multicast_expert.McastTxSocket(socket.AF_INET,
-                                            mcast_ips=[mcast_address_v4],
-                                            iface_ip=multicast_expert.LOCALHOST_IPV4) as mcast_tx_sock:
+                                                mcast_ips=[mcast_address_v4],
+                                                iface_ip=multicast_expert.LOCALHOST_IPV4) as mcast_tx_sock:
 
             mcast_tx_sock.sendto(test_string, (mcast_address_v4, port))
 
@@ -147,6 +151,10 @@ def test_v6_loopback():
     """
     Check that a packet can be sent to the loopback address and received using IPv6 multicast.
     """
+
+    # This test requires a route to be set up to enable transmission of multicasts on loopback:
+    # sudo ip -6 route add table local ff11::/16 dev lo
+
 
     with multicast_expert.McastRxSocket(socket.AF_INET6,
                                         mcast_ips=[mcast_address_v6],

@@ -1,7 +1,6 @@
 # Script containing the nitty-gritty OS level functions of multicast_expert.
 
 import platform
-import ctypes
 import socket
 import struct
 from typing import List
@@ -103,13 +102,10 @@ def set_multicast_if(mcast_socket: socket.socket, mcast_ips: List[str], iface_ip
             for ip in mcast_ips:
                 mcast_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, make_ip_mreqn_struct(ip, iface_index))
         else:  # IPv6
-            # On Linux/Mac IPv6, we have to pass a _pointer to_ the if index.  Yeah, you heard that right, a pointer.
-            # So, some additional hijinks are required
-            iface_index_int = ctypes.c_int(iface_index)
-            iface_index_ptr = ctypes.pointer(iface_index_int)
-            ifact_index_address = ctypes.addressof(iface_index_ptr)
-
-            mcast_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_IF, struct.pack("P", ifact_index_address))
+            # Linux/Mac IPv6 is same as Windows IPv6.
+            # Note: Documentation is very misleading, it does not take a pointer from our perspective,
+            # it just takes an int!
+            mcast_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_IF, struct.pack("I", iface_index))
 
 
 def add_memberships(mcast_socket: socket.socket, mcast_ips: List[str], iface_ip: str, addr_family: int):

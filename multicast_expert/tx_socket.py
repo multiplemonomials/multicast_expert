@@ -92,6 +92,7 @@ class McastTxSocket:
         if address[0] not in self.mcast_ips_set:
             raise MulticastExpertError("The given destination address (%s) was not one of the addresses given for this McastTxSocket to transmit to!" % (address[0], ))
 
+        print("self.socket.sendto(%s, %s)" % (repr(bytes), repr(address)))
         self.socket.sendto(bytes, address)
 
     def fileno(self) -> int:
