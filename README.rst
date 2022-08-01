@@ -32,16 +32,16 @@ For a simple ("unmanaged") Ethernet switch, its handling of multicast packets is
 
 As you might imagine, if you have a large network full of multicast users, and switches are broadcasting every message everywhere, you could get some pretty awful network congestion.  To combat this, more complex ("managed") Ethernet switches often have a feature called "IGMP snooping".  When a switch has this setting enabled, it listens for what's called an "IGMP join message" to be sent by a host.  This message is automatically sent by your OS whenever you open a multicast receive socket, and indicates that host X wants to receive traffic going to multicast address Y.  When the switch sees one of these messages, it automatically begins routing traffic to that multicast address over the corresponding network link.  No IGMP join message?  No multicasts for you.
 
-Last but not least, routers.  In contrast to Ethernet switches, which connect individual hosts together, routers connect entire networks together.  They have quite a bit more logic and generally require at least some manual configuration of what packets are routed where.  Generally, most multicasts are used within one network and as such multicast packets are usually not passed by routers (you can guarantee this by setting the Time To Live to 1, forcing them to be dropped by all routers).  However, the specifics depend on the router configuration, and often individual multicast addresses are treated differently.  If you really do need to pass multicasts through a router, you should contact your ISP or your network admin to verify the router settings.
+Last but not least, routers.  In contrast to Ethernet switches, which connect individual hosts together, routers connect entire networks together.  They have quite a bit more logic and generally require at least some manual configuration of what packets are routed where.  Often, multicasts are used within one network and are dropped by routers (you can guarantee this by setting the Time To Live to 1, forcing them to be dropped by any router).  However, the specifics depend on the router configuration, and often individual multicast addresses are treated differently.  If you really do need to pass multicasts through a router, you should contact your ISP or your network admin to verify the router settings.
 
 In conclusion, here's a table of how different boxes handle multicasts:
 
 ========================================= ============================================
-Box                                       What does it do with them?
+Box                                       What does it do with multicast packets?
 ========================================= ============================================
 Ethernet Switch (No IGMP Snooping)        Forwards to all hosts
 Ethernet Switch (IGMP Snooping Enabled)   Forwards to any hosts that have subscribed
-Router                                    Depends on configuration, often drops.
+Router                                    Depends on configuration.
 ========================================= ============================================
 
 **NOTE:** Be careful of boxes with unexpected behavior!  Multicast is one of the more rarely used features of IP and often does not seem to be well tested.  In my time working with multicast, I've seen a number of devices that do not implement the standard as I've written it here.  For instance, some switches can individually have IGMP snooping enabled/disabled on each port, producing unexpected behavior.  But I think the worst was a desktop switch which worked fine initially but started dropping most multicast traffic when IGMP snooping was enabled!
@@ -55,6 +55,12 @@ To send multicasts, an application can pretty much just create a normal UDP sock
 
 Receiving Multicasts
 ====================
+
+To receive multicasts, essentially two things need to happen.  First, your OS needs to be told to send out an IGMP join message, telling other devices on the network to send multicast packets your way.  This generally happens as a side effect of enabling the IP_ADD_MEMBERSHIP socket option (or one of its variants) on a socket.  Then, the OS network stack needs to be configured to forward multicast packets which arrive on the given interface to your application.  This process is pretty different on Windows and Unix.
+
+On Windows, multicast sockets are bound to a given port and interface (using bind()) when they are initially created.  Then, IP_ADD_MEMBERSHIP commands are used to further associate them with individual multicast addresses, so that when a packet is received to that multicast addr, it goes to the correct socket.  This is pretty convenient as it means one socket can use an arbitrary number of multicast groups.
+
+But on Unix, the situation is a bit different.  The IP_ADD_MEMBERSHIP command does not directly set up filtering by multicast address, it pretty much just sends the IGMP join message and opens the port on the interface to traffic.  So, if you were to take a multicast socket and bind it to 0.0.0.0, it would end up receiving all UDP traffic on that port, even to other multicast addresses or to the unicast address.  The only way to fix this is to bind the socket to the specific multicast address instead, causing any traffic with a different destination address to not be accepted by the socket.  Unfortunately, a socket can only be bound to one destination address at a time, so this means the library needs to create a different socket under the hood for each multicast address you want to listen on.
 
 **********************
 Using Multicast Expert

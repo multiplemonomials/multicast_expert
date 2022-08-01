@@ -3,6 +3,7 @@
 import platform
 import socket
 import struct
+import ctypes
 from typing import List
 
 import netifaces
