@@ -6,8 +6,8 @@ import platform
 # Test constants
 mcast_address_v4 = '239.2.2.2'
 mcast_address_v4_alternate = '239.2.2.3'
-mcast_address_v6 = 'ff13::abcd'
-mcast_address_v6_alternate = 'ff13::abcf'
+mcast_address_v6 = 'ff11::abcd'
+mcast_address_v6_alternate = 'ff11::abcf'
 test_string = b'Test of Multicast!'
 test_string_alternate = b'Test of Multicast -- alternate address!'
 port = 12345
@@ -157,7 +157,7 @@ def test_v6_loopback():
     """
 
     # On Linux, this test requires a route to be set up to enable transmission of multicasts on loopback:
-    # sudo ip -6 route add table local ff13::/16 dev lo
+    # sudo ip -6 route add table local ff11::/16 dev lo
 
 
     with multicast_expert.McastRxSocket(socket.AF_INET6,
@@ -276,7 +276,7 @@ def test_v6_loopback_multiple():
     """
 
     # On Linux, this test requires a route to be set up to enable transmission of multicasts on loopback:
-    # sudo ip -6 route add table local ff13::/16 dev lo
+    # sudo ip -6 route add table local ff11::/16 dev lo
 
     with multicast_expert.McastRxSocket(socket.AF_INET6,
                                         mcast_ips=[mcast_address_v6],

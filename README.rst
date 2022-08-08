@@ -67,8 +67,6 @@ On Windows, multicast sockets are bound to a given port and interface (using bin
 
 But on Unix, the situation is a bit different.  The IP_ADD_MEMBERSHIP command does not directly set up filtering by multicast address, it pretty much just sends the IGMP join message and opens the interface to receive packets going to the multicast address.  It does not directly associate the socket with the multicast address, it's still a "regular" UDP socket.  So, if you were to take a multicast socket and bind it to 0.0.0.0, it would end up receiving all UDP traffic on the port number, even traffic to other multicast addresses or to the unicast address.  The only way to fix this is to bind the socket to the specific multicast address instead, causing any traffic with a different destination address to not be accepted by the socket.  Unfortunately, a socket can only be bound to one destination address at a time, so this means multicast expert needs to create a different socket under the hood for each multicast address you want to listen on.
 
-**NOTE:** Linux in particular seems to have very picky handling of IPv6 multicast addresses.  It does not allow a socket to bind to an interface-local or link-local address, but only interface-local and link-local multicasts seem eligible to be sent over the loopback device.  I'm still trying to figure out a way to actually send and receive multicast packets over the loopback device for Linux IPv6.
-
 **********************
 Using Multicast Expert
 **********************
@@ -114,3 +112,6 @@ Q: Can I create multiple McastRxSockets on the same port and interface?
 
 Q: Is it possible to receive multicasts on all interfaces with a single socket?
     A: For reception, this should be possible; it may be implemented in a future version of the library.
+
+Q: Why are my multicasts to the loopback device not going through in Linux?
+    A: Linux seems to be very picky about what it allows through loopback.  First of all, you need to use ``ip route`` to add a route directing your multicast address to the ``lo`` interface.  Additionally, for IPv6, I have found that multicasts to addresses that don't start with ``ffx1`` (i.e. non-interface-local addresses) do not seem to be sent on loopback.  Still trying to find any document explaining this behavior...
