@@ -43,6 +43,7 @@ LOCALHOST_IPV6 = "::1"
 from .utils import get_interface_ips
 from .utils import get_default_gateway_iface_ip_v4
 from .utils import get_default_gateway_iface_ip_v6
+from .utils import get_default_gateway_iface_ip
 from .utils import MulticastExpertError
 
 # Transmit socket

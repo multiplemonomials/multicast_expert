@@ -60,6 +60,10 @@ def get_default_gateway_iface_ip_v4() -> Optional[str]:
 
 
 def get_default_gateway_iface_ip(addr_family: int) -> Optional[str]:
+    """
+    Get the IP address of the interface that connects to the default gateway of the given addr_family, if it
+    can be determined.  If it cannot be determined, None is returned.
+    """
 
     # Enumerate all gateways using netifaces
     try:

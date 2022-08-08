@@ -61,16 +61,11 @@ class McastTxSocket:
         # Use the IP_MULTICAST_IF option to set the interface to use.
         os_multicast.set_multicast_if(self.socket, self.mcast_ips, self.iface_ip, self.addr_family)
 
-        # If sending to localhost, allow looping.  Otherwise, turn it off.
-        loop_enabled = (self.iface_ip == LOCALHOST_IPV4 or self.iface_ip == LOCALHOST_IPV6)
-
-        # Now set the time-to-live and loop (thank goodness, this is the same on all platforms)
+        # Now set the time-to-live (thank goodness, this is the same on all platforms)
         if self.addr_family == socket.AF_INET:
             self.socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, self.ttl)
-            self.socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, loop_enabled)
         else: # IPv6
             self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_HOPS, self.ttl)
-            self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_LOOP, loop_enabled)
 
         self.is_opened = True
 

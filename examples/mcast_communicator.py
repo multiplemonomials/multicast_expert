@@ -77,11 +77,10 @@ listener_thread_obj = threading.Thread(target=listener_thread, name="Multicast L
 listener_thread_obj.start()
 
 # Start transmitting
-print("Communicator starting.  Press Ctrl-C to exit")
+print("Communicator starting on interface %s.  Press Ctrl-C to exit" % (multicast_expert.get_default_gateway_iface_ip(addr_family)))
 with multicast_expert.McastTxSocket(addr_family=addr_family, mcast_ips=[MULTICAST_ADDRESSES[addr_family][0], MULTICAST_ADDRESSES[addr_family][machine_number]]) as tx_socket:
     while True:
         time.sleep(1.0)
 
-        tx_bytes = ("Hello from machine %d" % (machine_number,)).encode("UTF-8")
-        tx_socket.sendto(tx_bytes, (MULTICAST_ADDRESSES[addr_family][0], PORT))
-        tx_socket.sendto(tx_bytes, (MULTICAST_ADDRESSES[addr_family][machine_number], PORT))
+        tx_socket.sendto(("Hello from machine %d via group 0" % (machine_number,)).encode("UTF-8"), (MULTICAST_ADDRESSES[addr_family][0], PORT))
+        tx_socket.sendto(("Hello from machine %d via group %d" % (machine_number, machine_number)).encode("UTF-8"), (MULTICAST_ADDRESSES[addr_family][machine_number], PORT))

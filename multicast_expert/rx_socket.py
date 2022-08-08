@@ -101,11 +101,16 @@ class McastRxSocket:
             else:
                 os_multicast.add_memberships(new_socket, mcast_ips, self.iface_ip, self.addr_family)
 
-            loop_enabled = (self.iface_ip == LOCALHOST_IPV4 or self.iface_ip == LOCALHOST_IPV6)
-            if self.addr_family == socket.AF_INET:
-                new_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, loop_enabled)
-            else:
-                new_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_LOOP, loop_enabled)
+            # On Windows, by default, sent packets are looped back to local sockets on the same interface, even for interfaces
+            # that are not loopback.  Change this by disabling IP_MULTICAST_LOOP unless the loopback interface is used.
+            # Note that this is *completely and totally different* from what the Win32 docs say that this option does.
+
+            if is_windows:  
+                loop_enabled = (self.iface_ip == LOCALHOST_IPV4 or self.iface_ip == LOCALHOST_IPV6)
+                if self.addr_family == socket.AF_INET:
+                    new_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, loop_enabled)
+                else:
+                    new_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_LOOP, loop_enabled)
 
             self.sockets.append(new_socket)
 
