@@ -6,7 +6,7 @@ from typing import List, Tuple, Optional
 import ctypes
 
 from .utils import get_interface_ips, get_default_gateway_iface_ip, validate_mcast_ip, MulticastExpertError
-from . import os_multicast
+from . import os_multicast, LOCALHOST_IPV6, LOCALHOST_IPV4
 
 is_windows = platform.system() == "Windows"
 
@@ -100,6 +100,12 @@ class McastRxSocket:
                 os_multicast.add_source_specific_memberships(new_socket, mcast_ips, self.source_ips, self.iface_ip)
             else:
                 os_multicast.add_memberships(new_socket, mcast_ips, self.iface_ip, self.addr_family)
+
+            loop_enabled = (self.iface_ip == LOCALHOST_IPV4 or self.iface_ip == LOCALHOST_IPV6)
+            if self.addr_family == socket.AF_INET:
+                new_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, loop_enabled)
+            else:
+                new_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_LOOP, loop_enabled)
 
             self.sockets.append(new_socket)
 

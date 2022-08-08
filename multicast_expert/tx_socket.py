@@ -5,7 +5,7 @@ from typing import List, Tuple
 import ctypes
 
 from .utils import get_interface_ips, validate_mcast_ip, get_default_gateway_iface_ip, MulticastExpertError
-from . import os_multicast
+from . import os_multicast, LOCALHOST_IPV4, LOCALHOST_IPV6
 
 class McastTxSocket:
     """
@@ -61,11 +61,16 @@ class McastTxSocket:
         # Use the IP_MULTICAST_IF option to set the interface to use.
         os_multicast.set_multicast_if(self.socket, self.mcast_ips, self.iface_ip, self.addr_family)
 
-        # Now set the time-to-live (thank goodness, this is the same on all platforms)
+        # If sending to localhost, allow looping.  Otherwise, turn it off.
+        loop_enabled = (self.iface_ip == LOCALHOST_IPV4 or self.iface_ip == LOCALHOST_IPV6)
+
+        # Now set the time-to-live and loop (thank goodness, this is the same on all platforms)
         if self.addr_family == socket.AF_INET:
             self.socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, self.ttl)
+            self.socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, loop_enabled)
         else: # IPv6
             self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_HOPS, self.ttl)
+            self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_LOOP, loop_enabled)
 
         self.is_opened = True
 
@@ -92,7 +97,6 @@ class McastTxSocket:
         if address[0] not in self.mcast_ips_set:
             raise MulticastExpertError("The given destination address (%s) was not one of the addresses given for this McastTxSocket to transmit to!" % (address[0], ))
 
-        print("self.socket.sendto(%s, %s)" % (repr(bytes), repr(address)))
         self.socket.sendto(bytes, address)
 
     def fileno(self) -> int:
