@@ -18,12 +18,12 @@ if is_windows:
     win32_GetAdapterIndex.argtypes = [ctypes.c_wchar_p, ctypes.POINTER(ctypes.c_ulong)]
 
 
-def iface_ip_to_index(iface_ip: str) -> int:
+def iface_ip_to_name(iface_ip: str) -> str:
     """
-    Convert a network interface's interface IP into its interface index.
+    Convert a network interface's interface IP into its interface name.
     """
 
-    # First, go from IP to interface name using netifaces.  To do that, we have to iterate through
+    # Go from IP to interface name using netifaces.  To do that, we have to iterate through
     # all of the machine's interfaces
     iface_name = None
     for interface in netifaces.interfaces():
@@ -36,6 +36,16 @@ def iface_ip_to_index(iface_ip: str) -> int:
 
     if iface_name is None:
         raise KeyError("Could not find network address with local IP " + iface_ip)
+
+    return iface_name
+
+
+def iface_ip_to_index(iface_ip: str) -> int:
+    """
+    Convert a network interface's interface IP into its interface index.
+    """
+    iface_name = iface_ip_to_name(iface_ip)
+    
 
     # Now, go from interface name to its index
     if is_windows:
