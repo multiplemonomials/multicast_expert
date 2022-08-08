@@ -1,11 +1,15 @@
 import multicast_expert
 import socket
 import pytest
+import platform
 
 # Test constants
 mcast_address_v4 = '239.2.2.2'
+mcast_address_v4_alternate = '239.2.2.3'
 mcast_address_v6 = 'ff11::abcd'
+mcast_address_v6_alternate = 'ff11::abcf'
 test_string = b'Test of Multicast!'
+test_string_alternate = b'Test of Multicast -- alternate address!'
 port = 12345
 
 def test_get_ifaces():
@@ -93,8 +97,8 @@ def test_v4_loopback():
     Check that a packet can be sent to the loopback address and received using IPv4 multicast.
     """
 
-    # This test requires a route to be set up to enable transmission of multicasts on loopback:
-    # sudo ip route add 239.2.2.2/32 dev lo
+    # On Linux, this test requires a route to be set up to enable transmission of multicasts on loopback:
+    # sudo ip route add 239.2.2.0/24 dev lo
 
 
     with multicast_expert.McastRxSocket(socket.AF_INET,
@@ -152,7 +156,7 @@ def test_v6_loopback():
     Check that a packet can be sent to the loopback address and received using IPv6 multicast.
     """
 
-    # This test requires a route to be set up to enable transmission of multicasts on loopback:
+    # On Linux, this test requires a route to be set up to enable transmission of multicasts on loopback:
     # sudo ip -6 route add table local ff11::/16 dev lo
 
 
@@ -175,3 +179,139 @@ def test_v6_loopback():
             print("\nRx: " + repr(packet))
             assert packet[0] == test_string
             assert packet[1][0:2] == (multicast_expert.LOCALHOST_IPV6, mcast_tx_sock.getsockname()[1])
+
+
+@pytest.mark.skipif(platform.system() == "Windows", reason="Does not pass on Windows")
+def test_v4_unicast_blocked():
+    """
+    Check that unicast packets cannot be received by a multicast socket
+    """
+
+    with multicast_expert.McastRxSocket(socket.AF_INET,
+                                        mcast_ips=[mcast_address_v4],
+                                        port=port,
+                                        iface_ip=multicast_expert.LOCALHOST_IPV4) as mcast_rx_sock:
+        mcast_rx_sock.settimeout(0.25)
+
+        tx_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+        tx_socket.sendto(b'Ignore this plz', (multicast_expert.LOCALHOST_IPV4, port))
+
+        assert mcast_rx_sock.recvfrom() is None
+
+        tx_socket.close()
+
+
+@pytest.mark.skipif(platform.system() == "Windows", reason="Does not pass on Windows")
+def test_v6_unicast_blocked():
+    """
+    Check that unicast packets cannot be received by a multicast socket
+    """
+
+    with multicast_expert.McastRxSocket(socket.AF_INET6,
+                                        mcast_ips=[mcast_address_v6],
+                                        port=port,
+                                        iface_ip=multicast_expert.LOCALHOST_IPV6) as mcast_rx_sock:
+        mcast_rx_sock.settimeout(0.25)
+
+        tx_socket = socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM)
+        tx_socket.sendto(b'Ignore this plz', (multicast_expert.LOCALHOST_IPV6, port))
+
+        assert mcast_rx_sock.recvfrom() is None
+
+        tx_socket.close()
+
+
+def test_v4_loopback_multiple():
+    """
+    Check that we can open two different Rx sockets on the same port but different addresses, and use them
+    with correct routing.
+    """
+
+    # On Linux, this test requires a route to be set up to enable transmission of multicasts on loopback:
+    # sudo ip route add 239.2.2.0/24 dev lo
+
+    with multicast_expert.McastRxSocket(socket.AF_INET,
+                                        mcast_ips=[mcast_address_v4],
+                                        port=port,
+                                        iface_ip=multicast_expert.LOCALHOST_IPV4) as mcast_rx_sock:
+
+        # Make sure the test doesn't get stuck forever if the packet isn't received
+        mcast_rx_sock.settimeout(1.0)
+
+        with multicast_expert.McastRxSocket(socket.AF_INET,
+                                            mcast_ips=[mcast_address_v4_alternate],
+                                            port=port,
+                                            iface_ip=multicast_expert.LOCALHOST_IPV4) as mcast_rx_sock_alt:
+            # Make sure the test doesn't get stuck forever if the packet isn't received
+            mcast_rx_sock_alt.settimeout(1.0)
+
+            with multicast_expert.McastTxSocket(socket.AF_INET,
+                                                    mcast_ips=[mcast_address_v4],
+                                                    iface_ip=multicast_expert.LOCALHOST_IPV4) as mcast_tx_sock:
+
+                with multicast_expert.McastTxSocket(socket.AF_INET,
+                                                    mcast_ips=[mcast_address_v4_alternate],
+                                                    iface_ip=multicast_expert.LOCALHOST_IPV4) as mcast_tx_sock_alt:
+
+                    mcast_tx_sock.sendto(test_string, (mcast_address_v4, port))
+                    mcast_tx_sock_alt.sendto(test_string_alternate, (mcast_address_v4_alternate, port))
+
+                    packet = mcast_rx_sock.recvfrom()
+
+                    print("\nRx: " + repr(packet))
+                    assert packet[0] == test_string
+                    assert packet[1] == (multicast_expert.LOCALHOST_IPV4, mcast_tx_sock.getsockname()[1])
+
+                    packet_alt = mcast_rx_sock_alt.recvfrom()
+
+                    print("\nRx: " + repr(packet_alt))
+                    assert packet_alt[0] == test_string_alternate
+                    assert packet_alt[1] == (multicast_expert.LOCALHOST_IPV4, mcast_tx_sock_alt.getsockname()[1])
+
+
+def test_v6_loopback_multiple():
+    """
+    Check that we can open two different Rx sockets on the same port but different addresses, and use them
+    with correct routing.
+    """
+
+    # On Linux, this test requires a route to be set up to enable transmission of multicasts on loopback:
+    # sudo ip -6 route add table local ff11::/16 dev lo
+
+    with multicast_expert.McastRxSocket(socket.AF_INET6,
+                                        mcast_ips=[mcast_address_v6],
+                                        port=port,
+                                        iface_ip=multicast_expert.LOCALHOST_IPV6) as mcast_rx_sock:
+
+        # Make sure the test doesn't get stuck forever if the packet isn't received
+        mcast_rx_sock.settimeout(1.0)
+
+        with multicast_expert.McastRxSocket(socket.AF_INET6,
+                                            mcast_ips=[mcast_address_v6_alternate],
+                                            port=port,
+                                            iface_ip=multicast_expert.LOCALHOST_IPV6) as mcast_rx_sock_alt:
+            # Make sure the test doesn't get stuck forever if the packet isn't received
+            mcast_rx_sock_alt.settimeout(1.0)
+
+            with multicast_expert.McastTxSocket(socket.AF_INET6,
+                                                    mcast_ips=[mcast_address_v6],
+                                                    iface_ip=multicast_expert.LOCALHOST_IPV6) as mcast_tx_sock:
+
+                with multicast_expert.McastTxSocket(socket.AF_INET6,
+                                                    mcast_ips=[mcast_address_v6_alternate],
+                                                    iface_ip=multicast_expert.LOCALHOST_IPV6) as mcast_tx_sock_alt:
+
+                    mcast_tx_sock.sendto(test_string, (mcast_address_v6, port))
+                    mcast_tx_sock_alt.sendto(test_string_alternate, (mcast_address_v6_alternate, port))
+
+                    packet = mcast_rx_sock.recvfrom()
+
+                    print("\nRx: " + repr(packet))
+                    assert packet[0] == test_string
+                    assert packet[1][0:2] == (multicast_expert.LOCALHOST_IPV6, mcast_tx_sock.getsockname()[1])
+
+                    packet_alt = mcast_rx_sock_alt.recvfrom()
+
+                    print("\nRx: " + repr(packet_alt))
+                    assert packet_alt[0] == test_string_alternate
+                    assert packet_alt[1][0:2] == (multicast_expert.LOCALHOST_IPV6, mcast_tx_sock_alt.getsockname()[1])

@@ -4,6 +4,11 @@ Multicast Expert for Python
 
 Multicasting is one of the cooler features of Internet Protocol (IP).  It allows a single source to send out IP packets (usually UDP) which are then received by multiple other devices on the network.  No configuration in advance is needed -- the sender just sends packets, and other devices may subscribe to these packets at their leisure.  Using a protocol called IGMP, computers and network switches communicate to ensure that the multicasts are only sent where they are needed, and not anywhere else.  It's great for applications such as audio/video transmission or distributed systems where you need to send out data to many different machines on a network.
 
+Ideally, multicasting is as simple as sending a packet to a specific multicast address, and then having certain other machines receive it.  It looks a bit like this:
+
+.. image:: https://app.box.com/shared/static/ftsh3tq2gvrzibhqwr26n1nvwqazcmlu.png
+    :alt: Diagram of a multicast packet being sent on a network
+
 Of course, in practice, things are a bit more complicated -- chiefly because using multicast requires setting additional socket options whose values and formats often differ by OS.  To that end, this library was created, so that you can multicast networking without having to mess around with low level OS stuff.  Multicast Expert includes all the required pieces to create and use IPv4 and IPv6 multicast sockets on Windows, Mac, and Linux.
 
 *******************
@@ -22,7 +27,7 @@ A multicast IPv4 address is defined as any IPv4 address whose most significant f
 
 When a network interface (e.g. your Ethernet card) sees a packet going to a multicast IP address, it processes it differently.  The exact specifics are outside of the scope of this document and depend on the specific medium, but often it will mark that packet as multicast at the link layer too, e.g. by giving it a special destination MAC address.  This ensures that the packet is delivered correctly by the link layer.
 
-If you are simply trying to receive existing multicast packets, all you need to do is open a multicast_expert socket with the multicast address of the protocol you're using.  But if you're trying to build your own application that communicates via multicast, you'll need to select an IPv4 or IPv6 multicast address to use for it.  Many of these addresses have to be officially assigned by IANA (the `wikipedia page on multicast addresses <https://en.wikipedia.org/wiki/Multicast_address#IPv4>`_ has the full details), though it's worth knowing that IP addresses in the 239.x.x.x range are "administratively scoped" and available for private use on LANs.
+If you are simply trying to receive existing multicast packets, all you need to do is open a multicast_expert socket with the multicast address of the protocol you're using.  But if you're trying to build your own application that communicates via multicast, you'll need to select an IPv4 or IPv6 multicast address to use for it.  Many of these addresses have to be officially assigned by IANA (the `wikipedia page on multicast addresses <https://en.wikipedia.org/wiki/Multicast_address#IPv4>`_ has the full details), though IP addresses in the 239.x.x.x range are "administratively scoped" and available for private use on LANs.
 
 Multicast Routing in Networks
 =============================
@@ -58,9 +63,9 @@ Receiving Multicasts
 
 To receive multicasts, essentially two things need to happen.  First, your OS needs to be told to send out an IGMP join message, telling other devices on the network to send multicast packets your way.  This generally happens as a side effect of enabling the IP_ADD_MEMBERSHIP socket option (or one of its variants) on a socket.  Then, the OS network stack needs to be configured to forward multicast packets which arrive on the given interface to your application.  This process is pretty different on Windows and Unix.
 
-On Windows, multicast sockets are bound to a given port and interface (using bind()) when they are initially created.  Then, IP_ADD_MEMBERSHIP commands are used to further associate them with individual multicast addresses, so that when a packet is received to that multicast addr, it goes to the correct socket.  This is pretty convenient as it means one socket can use an arbitrary number of multicast groups and not receive anything it didn't intend to.
+On Windows, multicast sockets are bound to a given port and interface (using bind()) when they are initially created.  Then, IP_ADD_MEMBERSHIP commands are used to further associate them with individual multicast addresses, so that when a packet is received to that multicast addr, it goes to the correct socket.  This is convenient as it means one socket can use multiple multicast groups and still not receive unwanted traffic from other groups that use the same port.  However, there's no way to block unicast traffic going to that interface and port from also being received by the multicast socket.
 
-But on Unix, the situation is a bit different.  The IP_ADD_MEMBERSHIP command does not directly set up filtering by multicast address, it pretty much just sends the IGMP join message and opens the interface to receive packets going to the multicast address.  It does not directly associate the socket with the multicast address, it's still a "regular" UDP socket.  So, if you were to take a multicast socket and bind it to 0.0.0.0, it would end up receiving all UDP traffic on the port number, even traffic to other multicast addresses or to the unicast address.  The only way to fix this is to bind the socket to the specific multicast address instead, causing any traffic with a different destination address to not be accepted by the socket.  Unfortunately, a socket can only be bound to one destination address at a time, so this means the library needs to create a different socket under the hood for each multicast address you want to listen on.
+But on Unix, the situation is a bit different.  The IP_ADD_MEMBERSHIP command does not directly set up filtering by multicast address, it pretty much just sends the IGMP join message and opens the interface to receive packets going to the multicast address.  It does not directly associate the socket with the multicast address, it's still a "regular" UDP socket.  So, if you were to take a multicast socket and bind it to 0.0.0.0, it would end up receiving all UDP traffic on the port number, even traffic to other multicast addresses or to the unicast address.  The only way to fix this is to bind the socket to the specific multicast address instead, causing any traffic with a different destination address to not be accepted by the socket.  Unfortunately, a socket can only be bound to one destination address at a time, so this means multicast expert needs to create a different socket under the hood for each multicast address you want to listen on.
 
 **********************
 Using Multicast Expert
@@ -93,3 +98,14 @@ The following block shows how to create a Tx socket and send some data:
 Note: when you construct the socket, you have to pass in all of the multicast IPs that you will want to use the socket to send to.  These must be known in advance in order to configure socket options correctly.
 
 Note 2: If you omitted the iface_ip= argument, the get_default_gateway_iface_ip_v4() function would have been called to guess the iface ip.  So, we could have omitted this argument for the same result.
+
+FAQ
+===
+Q: What happens if an interface changes IP address (e.g. due to the user modifying a static IP) after I create a multicast socket on that interface?
+    A: On all machines tested so far, multicast sockets will stick with their assigned interface once created, even if the IP of that interface changes or it is brought down.
+
+Q: Do McastRxSockets receive regular (unicast) UDP packets going to the same interface and port?
+    A: On Windows, yes.  On Unix, no.  Unfortunately, this is a platform difference that I haven't found an easy way to work around.
+
+Q: Can I create multiple McastRxSockets on the same port and interface?
+    A: As long as they have different mcast addresses, then yes, this works how you'd expect.

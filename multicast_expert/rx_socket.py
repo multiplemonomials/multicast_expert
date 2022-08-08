@@ -1,12 +1,14 @@
 import platform
+import select
 import socket
 import struct
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 import ctypes
 
 from .utils import get_interface_ips, get_default_gateway_iface_ip, validate_mcast_ip, MulticastExpertError
 from . import os_multicast
 
+is_windows = platform.system() == "Windows"
 
 class McastRxSocket:
     """
@@ -40,9 +42,9 @@ class McastRxSocket:
         self.mcast_ips = mcast_ips
         self.port = port
         self.source_ips = source_ips
-        self.blocking = blocking
 
         self.is_opened = False
+        self.timeout = None if blocking else 0
 
         if self.iface_ip is None:
             self.iface_ip = get_default_gateway_iface_ip(self.addr_family)
@@ -70,24 +72,32 @@ class McastRxSocket:
         if self.is_opened:
             raise MulticastExpertError("Attempt to open an McastRxSocket that is already open!")
 
-        # Open the socket and set options
-        self.socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
-        self.socket.setblocking(self.blocking)
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-        # As for the bind address, we basically have two options for Linux.
-        # Option 1: Bind to INADDR_ANY.  On Linux, this allows all UDP traffic coming in to the machine, on that port,
-        # from any interface, to be recieved by the socket.  This is bad because it means that traffic from other interfaces can potentially
-        # enter the socket.
-        # Option 2: Bind to individual multicast address.  This makes Linux act like Windows, but Linux can only bind to one 
-        # mcast address per socket so we need multiple sockets.  
-        # NOTE: Maybe the cleanest option would be to just bind to the interface address, and this works on Windows, but Linux doesn't support that.
-        self.socket.bind(("", self.port))
-
-        if self.is_source_specific:
-            os_multicast.add_source_specific_memberships(self.socket, self.mcast_ips, self.source_ips, self.iface_ip)
+        # On Windows, we just have to create one socket and bind it to the interface address, then subscribe
+        # to all multicast addresses.
+        # On Unix, we need one socket bound to each multicast address.
+        if is_windows:
+            bind_ip_and_mcast_ips_list = [(self.iface_ip, self.mcast_ips)]
         else:
-            os_multicast.add_memberships(self.socket, self.mcast_ips, self.iface_ip, self.addr_family)
+            bind_ip_and_mcast_ips_list = [(mcast_ip, [mcast_ip]) for mcast_ip in self.mcast_ips]
+
+        # Create the sockets and set options
+        self.sockets = []
+        for bind_ip_and_mcast_ips in bind_ip_and_mcast_ips_list:
+
+            bind_address = bind_ip_and_mcast_ips[0]
+            mcast_ips = bind_ip_and_mcast_ips[1]
+
+            new_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
+            new_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+            new_socket.bind((bind_address, self.port))
+
+            if self.is_source_specific:
+                os_multicast.add_source_specific_memberships(new_socket, mcast_ips, self.source_ips, self.iface_ip)
+            else:
+                os_multicast.add_memberships(new_socket, mcast_ips, self.iface_ip, self.addr_family)
+
+            self.sockets.append(new_socket)
 
         self.is_opened = True
 
@@ -99,10 +109,11 @@ class McastRxSocket:
             raise MulticastExpertError("Attempt to close an McastRxSocket that is already closed!")
 
         # Close socket
-        self.socket.close()
+        for socket in self.sockets:
+            socket.close()
         self.is_opened = False
 
-    def recvfrom(self, bufsize=4096, flags=0) -> Tuple[bytes, Tuple]:
+    def recvfrom(self, bufsize=4096, flags=0) -> Optional[Tuple[bytes, Tuple]]:
         """
         Receive a UDP packet from the socket, returning the bytes and the sender address.
         This respects the current blocking and timeout settings.
@@ -111,11 +122,21 @@ class McastRxSocket:
         manual for that function for details.
 
         :return: Tuple of (bytes, address).  For IPv4, address is a tuple of IP address (str) and port number.
-        For IPv6, address is a tuple of IP address (str), port number, flow info, and scope ID.
+            For IPv6, address is a tuple of IP address (str), port number, flow info, and scope ID.
+            If no packets were received (nonblocking mode or timeout), None is returned.
         """
-        return self.socket.recvfrom(bufsize, flags)
 
-    def recv(self, bufsize=4096, flags=0) -> bytes:
+        # Use select() to find a socket that is ready for reading
+        read_list, write_list, exception_list = select.select(self.sockets, [], [], self.timeout)
+
+        if len(read_list) == 0:
+            # No data read
+            return None
+
+        # Since we only want to return one packet at a time, just pick the first readable socket.
+        return read_list[0].recvfrom(bufsize, flags)
+
+    def recv(self, bufsize=4096, flags=0) -> Optional[bytes]:
         """
         Receive a UDP packet from the socket, returning the bytes.
         This respects the current blocking and timeout settings.
@@ -127,21 +148,26 @@ class McastRxSocket:
 
         :return: Bytes received.
         """
-        return self.socket.recv(bufsize, flags)
+        packet_and_addr = self.recvfrom(bufsize, flags)
+        if packet_and_addr is None:
+            return None
+        else:
+            return packet_and_addr[0]
 
-    def fileno(self) -> int:
+    def filenos(self) -> List[int]:
         """
-        Get the file descriptor for this socket.  Enables use of McastRxSocket with select().
+        Get a list of the socket file descriptor(s) used by this socket.  You can use this with the select module
+        to implement blocking I/O on multiple different multicast sockets.
         """
-        return self.socket.fileno()
+        return [socket.fileno() for socket in self.sockets]
 
     def settimeout(self, timeout: float):
         """
         Set the timeout on socket operations.  Behavior depends on the value passed for timeout:
 
-        * Number > 0: Receiving packets will throw a socket.timeout if more than timeout seconds elapse while waiting for a packet.
+        * Number > 0: Receiving packets will abort if more than timeout seconds elapse while waiting for a packet.
         * 0: Socket will be put in nonblocking mode
         * None: Socket will block forever (the default)
         """
 
-        self.socket.settimeout(timeout)
+        self.timeout = timeout
