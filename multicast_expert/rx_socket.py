@@ -90,11 +90,11 @@ class McastRxSocket:
             new_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
             new_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-            if self.addr_family == socket.AF_INET:
-                new_socket.bind((bind_address, self.port))
-            else:
-                # Note: for IPv6, need to specify the scope ID in the bind address in order for link-local mcast addresses to work
+            if self.addr_family == socket.AF_INET6 and not (is_windows):
+                # Note: for Unix IPv6, need to specify the scope ID in the bind address in order for link-local mcast addresses to work
                 new_socket.bind((bind_address, self.port, 0, os_multicast.iface_ip_to_index(self.iface_ip)))
+            else:
+                new_socket.bind((bind_address, self.port))
 
             if self.is_source_specific:
                 os_multicast.add_source_specific_memberships(new_socket, mcast_ips, self.source_ips, self.iface_ip)
