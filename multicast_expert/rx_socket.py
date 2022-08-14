@@ -35,7 +35,7 @@ class McastRxSocket:
             OS will drop messages not from one of these IPs, and may even use special IGMPv3 source-specific
             subscription packets to ask for only those specific multicasts from switches/routers.
             This option is only supported for IPv4, currently no major OS supports it with IPv6.
-        :param blocking: Whether reception from this socket blocks.
+        :param blocking: Whether reception from this socket blocks.  This can be changed later using settimeout()
         """
         self.addr_family = addr_family
         self.iface_ip = iface_ip
@@ -147,7 +147,7 @@ class McastRxSocket:
         read_list, write_list, exception_list = select.select(self.sockets, [], [], self.timeout)
 
         if len(read_list) == 0:
-            # No data read
+            # No data to read
             return None
 
         # Since we only want to return one packet at a time, just pick the first readable socket.

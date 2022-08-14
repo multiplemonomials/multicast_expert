@@ -1,11 +1,11 @@
 [tool.poetry]
 name = "multicast_expert"
-version = "1.0.0"
+version = "1.0.1"
 description = "A library to take the fiddly parts out of multicast networking!"
 authors = ["Jamie Smith <jsmith@crackofdawn.onmicrosoft.com>"]
 license = "MIT"
 readme = "README.rst"
-repository = "https://pypi.org/project/multicast-expert/"
+repository = "https://github.com/multiplemonomials/multicast_expert"
 
 [tool.poetry.dependencies]
 python = "^3.8" # Need Python 3.8 for socket.IPPROTO_IPV6
