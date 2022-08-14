@@ -105,7 +105,7 @@ def make_ip_mreqn_struct(mcast_addr: str, iface_info: IfaceInfo) -> bytes:
     # Note: Despite the fact that imr_ifindex is supposed to replace imr_address, some Linux systems
     # tested (older kernels??) seem to require the imr_address field to be populated even if you provide
     # the imr_ifindex.
-    return struct.pack('@4sLi',
+    return struct.pack('@4s4si',
                        socket.inet_aton(mcast_addr), # imr_multiaddr
                        socket.inet_aton(iface_info.iface_ip), # imr_address
                        iface_info.iface_idx) # imr_ifindex
