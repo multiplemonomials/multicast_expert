@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "multicast_expert"
-version = "0.0.3"
+version = "1.0.0"
 description = "A library to take the fiddly parts out of multicast networking!"
 authors = ["Jamie Smith <jsmith@crackofdawn.onmicrosoft.com>"]
 license = "MIT"
