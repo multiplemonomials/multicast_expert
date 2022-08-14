@@ -5,6 +5,7 @@ import socket
 import struct
 import ctypes
 from typing import List
+from dataclasses import dataclass
 
 import netifaces
 
@@ -40,14 +41,11 @@ def iface_ip_to_name(iface_ip: str) -> str:
     return iface_name
 
 
-def iface_ip_to_index(iface_ip: str) -> int:
+def iface_name_to_index(iface_name: str) -> int:
     """
-    Convert a network interface's interface IP into its interface index.
+    Convert a network interface's name into its interface index.
     """
-    iface_name = iface_ip_to_name(iface_ip)
-    
 
-    # Now, go from interface name to its index
     if is_windows:
 
         # To get the if index on Windows we have to use the GetAdapterIndex() function.
@@ -69,90 +67,116 @@ def iface_ip_to_index(iface_ip: str) -> int:
         return socket.if_nametoindex(iface_name)
 
 
-def make_ip_mreqn_struct(mcast_addr: str, iface_idx: int) -> bytes:
+@dataclass
+class IfaceInfo:
+
     """
-    Generates an ip_mreqn structure (used for setsockopt) from an IPv4 address and an interface index.
+    Class to store data about an interface.
+
+    Parameters
+    ----------
+    iface_ip:
+        IP address of the interface as a string
+    iface_name:
+        Name of the interface as returned by netifaces.
+        On Windows this is a guid, on unix it's the name you'd get from e.g. `ip link`.
+    iface_idx:
+        Index of this interface with the OS.  This is an internal value used in some system calls.
+    """
+    iface_ip: str
+    iface_name: str
+    iface_idx: int
+
+
+def get_iface_info(iface_ip: str) -> IfaceInfo:
+    """
+    Return an IfaceInfo object for a network interface from its IP address
+    :return:
+    """
+    iface_name = iface_ip_to_name(iface_ip)
+    return IfaceInfo(iface_ip, iface_name, iface_name_to_index(iface_name))
+
+
+def make_ip_mreqn_struct(mcast_addr: str, iface_info: IfaceInfo) -> bytes:
+    """
+    Generates an ip_mreqn structure (used for setsockopt) from an IPv4 address and an interface.
     """
     # Structure documented here: https://linux.die.net/man/7/ip
+    # Note: Despite the fact that imr_ifindex is supposed to replace imr_address, some Linux systems
+    # tested (older kernels??) seem to require the imr_address field to be populated even if you provide
+    # the imr_ifindex.
     return struct.pack('@4sLi',
                        socket.inet_aton(mcast_addr), # imr_multiaddr
-                       socket.ntohl(socket.INADDR_ANY), # imr_address
-                       iface_idx) # imr_ifindex
+                       socket.inet_aton(iface_info.iface_ip), # imr_address
+                       iface_info.iface_idx) # imr_ifindex
 
 
-def make_ipv6_mreq_struct(mcast_ip: str, iface_idx: int) -> bytes:
+def make_ipv6_mreq_struct(mcast_ip: str, iface_info: IfaceInfo) -> bytes:
     """
     Generates an ipv6_mreq structure to be used with IPV6_ADD_MEMBERSHIP.
     """
     # Structure documented here on Windows: https://docs.microsoft.com/en-us/windows/win32/api/ws2ipdef/ns-ws2ipdef-ipv6_mreq
     # and here on Linux: https://github.com/torvalds/linux/blob/3d7cb6b04c3f3115719235cc6866b10326de34cd/include/uapi/linux/in6.h#L60
-    return struct.pack("=16sI", socket.inet_pton(socket.AF_INET6, mcast_ip), iface_idx)
+    return struct.pack("=16sI", socket.inet_pton(socket.AF_INET6, mcast_ip), iface_info.iface_idx)
 
 
-def set_multicast_if(mcast_socket: socket.socket, mcast_ips: List[str], iface_ip: str, addr_family: int):
+def set_multicast_if(mcast_socket: socket.socket, mcast_ips: List[str], iface_info: IfaceInfo, addr_family: int):
     """
-    Set the IP_MULTICAST_IF / IPV6_MULTICAST_IF socket option to iface_ip on a given socket.
+    Set the IP_MULTICAST_IF / IPV6_MULTICAST_IF socket option to an interface on a given socket.
     Note that this option needs 4 different code paths to set it, on Windows IPv6 / Windows IPv4 / Unix IPv6 / Unix IPv4
     """
-    iface_index = iface_ip_to_index(iface_ip)
-
     if is_windows:
         # On Windows, IP_MULTICAST_IF takes just the interface index
         # See docs here: https://docs.microsoft.com/en-us/windows/win32/winsock/ipproto-ip-socket-options
         if addr_family == socket.AF_INET:
             # IPv4 has if index in *network* byte order
-            mcast_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, struct.pack("!I", iface_index))
+            mcast_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, struct.pack("!I", iface_info.iface_idx))
         else:  # IPv6
             # IPv6 has if index in *host* byte order
-            mcast_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_IF, struct.pack("I", iface_index))
+            mcast_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_IF, struct.pack("I", iface_info.iface_idx))
 
     else:
         if addr_family == socket.AF_INET:
             # On Linux/Mac IPv4, IP_MULTICAST_IF takes an ip_mreq struct and needs to be specified for each
             # multicast address that we're sending to.
             for ip in mcast_ips:
-                mcast_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, make_ip_mreqn_struct(ip, iface_index))
+                mcast_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, make_ip_mreqn_struct(ip, iface_info))
         else:  # IPv6
             # Linux/Mac IPv6 is same as Windows IPv6.
-            # Note: Documentation is very misleading, it does not take a pointer from our perspective,
+            # Note: Documentation is very misleading, it does not take a pointer from the Python perspective,
             # it just takes an int!
-            mcast_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_IF, struct.pack("I", iface_index))
+            mcast_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_IF, struct.pack("I", iface_info.iface_idx))
 
 
-def add_memberships(mcast_socket: socket.socket, mcast_ips: List[str], iface_ip: str, addr_family: int):
+def add_memberships(mcast_socket: socket.socket, mcast_ips: List[str], iface_info: IfaceInfo, addr_family: int):
     """
     Add a non-source-specific membership for the given multicast IPs on the given socket.
     """
-
-    iface_index = iface_ip_to_index(iface_ip)
 
     for mcast_ip in mcast_ips:
         if is_windows:
             # See docs here: https://docs.microsoft.com/en-us/windows/win32/winsock/ipproto-ip-socket-options
             if addr_family == socket.AF_INET:
                 # For IPv4, we pass the mcast addr and the if index in *network* byte order
-                mreq_bytes = struct.pack("!4sI", socket.inet_aton(mcast_ip), iface_index)
+                mreq_bytes = struct.pack("!4sI", socket.inet_aton(mcast_ip), iface_info.iface_idx)
                 mcast_socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq_bytes)
             else:  # IPv6
                 # Note: Docs call the option "IPV6_ADD_MEMBERSHIP" but Python only has "IPV6_JOIN_GROUP"
-                mcast_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, make_ipv6_mreq_struct(mcast_ip, iface_index))
+                mcast_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, make_ipv6_mreq_struct(mcast_ip, iface_info))
 
         else:
             if addr_family == socket.AF_INET:
-                mcast_socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, make_ip_mreqn_struct(mcast_ip, iface_index))
+                mcast_socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, make_ip_mreqn_struct(mcast_ip, iface_info))
             else: # IPv6
                 # Note: Docs call the option "IPV6_ADD_MEMBERSHIP" but Python only has "IPV6_JOIN_GROUP"
-                mcast_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, make_ipv6_mreq_struct(mcast_ip, iface_index))
+                mcast_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, make_ipv6_mreq_struct(mcast_ip, iface_info))
 
 
-def add_source_specific_memberships(mcast_socket: socket.socket, mcast_ips: List[str], source_ips: List[str], iface_ip: str):
+def add_source_specific_memberships(mcast_socket: socket.socket, mcast_ips: List[str], source_ips: List[str], iface_info: IfaceInfo):
     """
     Add a source-specific membership for the given multicast IPs on the given socket, with the given sources.
     Currently only supports IPv6.
     """
-
-    iface_index = iface_ip_to_index(iface_ip)
-
     for mcast_ip in mcast_ips:
         for source_ip in source_ips:
             if is_windows:
@@ -161,13 +185,13 @@ def add_source_specific_memberships(mcast_socket: socket.socket, mcast_ips: List
                 mreq_source_bytes = struct.pack("!4s4sI",
                                                 socket.inet_aton(mcast_ip), # imr_multiaddr
                                                 socket.inet_aton(source_ip), # imr_sourceaddr
-                                                iface_index) # imr_interface
+                                                iface_info.iface_idx) # imr_interface
 
             else:
                 # Struct documented here: https://linux.die.net/man/7/ip
                 mreq_source_bytes = struct.pack("@4s4s4s",
                                                 socket.inet_aton(mcast_ip), # imr_multiaddr
-                                                socket.inet_aton(iface_ip), # imr_interface
+                                                socket.inet_aton(iface_info.iface_ip), # imr_interface
                                                 socket.inet_aton(source_ip)) # imr_sourceaddr
 
             mcast_socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_SOURCE_MEMBERSHIP, mreq_source_bytes)

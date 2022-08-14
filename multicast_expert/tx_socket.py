@@ -41,8 +41,10 @@ class McastTxSocket:
             if self.iface_ip is None:
                 raise MulticastExpertError("iface_ip not specified but unable to determine the default gateway on this machine")
 
-        # Sanity check that the iface_ip actually exists
-        if os_multicast.iface_ip_to_index(self.iface_ip) is None:
+        # Resolve the interface
+        try:
+            self.iface_info = os_multicast.get_iface_info(self.iface_ip)
+        except KeyError:
             raise MulticastExpertError("iface_ip %s does not seem to correspond to a valid interface.  Valid interfaces: %s" %
                                        (self.iface_ip, ", ".join(get_interface_ips())))
 
@@ -59,7 +61,7 @@ class McastTxSocket:
         self.socket.bind((self.iface_ip, 0)) # Bind to any available port
 
         # Use the IP_MULTICAST_IF option to set the interface to use.
-        os_multicast.set_multicast_if(self.socket, self.mcast_ips, self.iface_ip, self.addr_family)
+        os_multicast.set_multicast_if(self.socket, self.mcast_ips, self.iface_info, self.addr_family)
 
         # Now set the time-to-live (thank goodness, this is the same on all platforms)
         if self.addr_family == socket.AF_INET:

@@ -53,8 +53,10 @@ class McastRxSocket:
                 raise MulticastExpertError(
                     "iface_ip not specified but unable to determine the default gateway on this machine")
 
-        # Sanity check that the iface_ip actually exists
-        if os_multicast.iface_ip_to_index(self.iface_ip) is None:
+        # Resolve the interface
+        try:
+            self.iface_info = os_multicast.get_iface_info(self.iface_ip)
+        except KeyError:
             raise MulticastExpertError(
                 "iface_ip %s does not seem to correspond to a valid interface.  Valid interfaces: %s" %
                 (self.iface_ip, ", ".join(get_interface_ips())))
@@ -92,14 +94,14 @@ class McastRxSocket:
 
             if self.addr_family == socket.AF_INET6 and not (is_windows):
                 # Note: for Unix IPv6, need to specify the scope ID in the bind address in order for link-local mcast addresses to work
-                new_socket.bind((bind_address, self.port, 0, os_multicast.iface_ip_to_index(self.iface_ip)))
+                new_socket.bind((bind_address, self.port, 0, self.iface_info.iface_idx))
             else:
                 new_socket.bind((bind_address, self.port))
 
             if self.is_source_specific:
-                os_multicast.add_source_specific_memberships(new_socket, mcast_ips, self.source_ips, self.iface_ip)
+                os_multicast.add_source_specific_memberships(new_socket, mcast_ips, self.source_ips, self.iface_info)
             else:
-                os_multicast.add_memberships(new_socket, mcast_ips, self.iface_ip, self.addr_family)
+                os_multicast.add_memberships(new_socket, mcast_ips, self.iface_info, self.addr_family)
 
             # On Windows, by default, sent packets are looped back to local sockets on the same interface, even for interfaces
             # that are not loopback.  Change this by disabling IP_MULTICAST_LOOP unless the loopback interface is used.
