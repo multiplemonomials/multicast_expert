@@ -7,6 +7,8 @@ import ctypes
 from .utils import get_interface_ips, validate_mcast_ip, get_default_gateway_iface_ip, MulticastExpertError
 from . import os_multicast, LOCALHOST_IPV4, LOCALHOST_IPV6
 
+is_windows = platform.system() == "Windows"
+
 class McastTxSocket:
     """
     Class to wrap a socket that sends to one or more multicast groups.
@@ -68,6 +70,14 @@ class McastTxSocket:
             self.socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, self.ttl)
         else: # IPv6
             self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_HOPS, self.ttl)
+
+        # On Unix, we need to disable multicast loop here.  Otherwise, sent packets will get looped back to local
+        # sockets on the same interface.
+        if not is_windows:
+            if self.addr_family == socket.AF_INET:
+                self.socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, False)
+            else:
+                self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_LOOP, False)
 
         self.is_opened = True
 
