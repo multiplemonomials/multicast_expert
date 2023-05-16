@@ -4,10 +4,8 @@ import struct
 from typing import List, Tuple
 import ctypes
 
-from .utils import get_interface_ips, validate_mcast_ip, get_default_gateway_iface_ip, MulticastExpertError
+from .utils import get_interface_ips, validate_mcast_ip, get_default_gateway_iface_ip, MulticastExpertError, is_mac, is_windows
 from . import os_multicast, LOCALHOST_IPV4, LOCALHOST_IPV6
-
-is_windows = platform.system() == "Windows"
 
 class McastTxSocket:
     """
@@ -74,10 +72,15 @@ class McastTxSocket:
         # On Unix, we need to disable multicast loop here.  Otherwise, sent packets will get looped back to local
         # sockets on the same interface.
         if not is_windows:
+
+            # On Mac, we do want to keep loopback enabled but only on the loopback interface.
+            # On Linux, always disable it.
+            enable_loopback = is_mac() and (self.iface_ip == LOCALHOST_IPV4 or self.iface_ip == LOCALHOST_IPV6)
+
             if self.addr_family == socket.AF_INET:
-                self.socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, False)
+                self.socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, enable_loopback)
             else:
-                self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_LOOP, False)
+                self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_LOOP, enable_loopback)
 
         self.is_opened = True
 

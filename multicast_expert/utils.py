@@ -4,6 +4,8 @@ import ipaddress
 
 import netifaces
 
+is_windows = platform.system() == "Windows"
+is_mac = platform.system() == "Darwin"
 
 # Exception class for this library
 class MulticastExpertError(RuntimeError):

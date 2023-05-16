@@ -5,10 +5,8 @@ import struct
 from typing import List, Tuple, Optional
 import ctypes
 
-from .utils import get_interface_ips, get_default_gateway_iface_ip, validate_mcast_ip, MulticastExpertError
+from .utils import get_interface_ips, get_default_gateway_iface_ip, validate_mcast_ip, MulticastExpertError, is_mac, is_windows
 from . import os_multicast, LOCALHOST_IPV6, LOCALHOST_IPV4
-
-is_windows = platform.system() == "Windows"
 
 class McastRxSocket:
     """

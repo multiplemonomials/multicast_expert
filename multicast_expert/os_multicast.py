@@ -9,9 +9,6 @@ from dataclasses import dataclass
 
 import netifaces
 
-
-is_windows = platform.system() == "Windows"
-
 # Import needed Win32 DLL functions
 if is_windows:
     iphlpapi = ctypes.WinDLL('iphlpapi')
@@ -180,13 +177,21 @@ def add_source_specific_memberships(mcast_socket: socket.socket, mcast_ips: List
     for mcast_ip in mcast_ips:
         for source_ip in source_ips:
             if is_windows:
-                # Struct documented here: https://docs.microsoft.com/en-us/windows/win32/api/ws2ipdef/ns-ws2ipdef-ip_mreq_source
+                # Struct documented here:
+                # https://docs.microsoft.com/en-us/windows/win32/api/ws2ipdef/ns-ws2ipdef-ip_mreq_source
                 # Note: imr_interface is in network byte order
                 mreq_source_bytes = struct.pack("!4s4sI",
                                                 socket.inet_aton(mcast_ip), # imr_multiaddr
                                                 socket.inet_aton(source_ip), # imr_sourceaddr
                                                 iface_info.iface_idx) # imr_interface
 
+            elif is_mac:
+                # Struct documented here:
+                # https://opensource.apple.com/source/xnu/xnu-4570.1.46/bsd/netinet/in.h.auto.html
+                mreq_source_bytes = struct.pack("@4s4s4s",
+                                                socket.inet_aton(mcast_ip),  # imr_multiaddr
+                                                socket.inet_aton(source_ip),  # imr_sourceaddr
+                                                socket.inet_aton(iface_info.iface_ip))  # imr_interface
             else:
                 # Struct documented here: https://linux.die.net/man/7/ip
                 mreq_source_bytes = struct.pack("@4s4s4s",
