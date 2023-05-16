@@ -1,6 +1,7 @@
 import socket
 from typing import List, Dict, Optional
 import ipaddress
+import platform
 
 import netifaces
 

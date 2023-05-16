@@ -6,6 +6,7 @@ import struct
 import ctypes
 from typing import List
 from dataclasses import dataclass
+from .utils import is_mac, is_windows
 
 import netifaces
 
