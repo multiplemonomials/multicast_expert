@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import platform
+
+import netifaces
 import select
 import socket
 import struct
@@ -16,7 +18,7 @@ class McastRxSocket:
     Class to wrap a socket that receives from one or more multicast groups.
     """
 
-    def __init__(self, addr_family: int, mcast_ips: List[str], port: int, iface_ip: Optional[str] = None, source_ips: Optional[List[str]] = None, blocking: bool = True):
+    def __init__(self, addr_family: int, mcast_ips: List[str], port: int, iface_ip: Optional[str] = None, iface_ips: Optional[List[str]] = None, source_ips: Optional[List[str]] = None, blocking: bool = True):
         """
         Create a socket which receives UDP datagrams over multicast.  The socket must be opened
         (e.g. using a with statement) before it can be used.
@@ -28,10 +30,11 @@ class McastRxSocket:
         :param addr_family: Sets IPv4 or IPv6 operation.  Either socket.AF_INET or socket.AF_INET6.
         :param mcast_ips: List of all possible multicast IPs that this socket can receive from.
         :param port: The port to listen on.
-        :param iface_ip: Interface IP that this socket sends on.  If left as None, multicast_expert will
-            attempt to guess an interface by using the interface your default gateway is on (aka
-            the one your PC uses to access the internet).  Be careful, this default may not be desired
-            in many cases.  See the docs for details.
+        :param iface_ips: Interface IPs that this socket receives from.  If left as None, multicast_expert will
+            attempt to listen on all (non-loopback) interfaces discovered on your machine.  Be careful, this default 
+            may not be desired in many cases.  See the docs for details.
+        :param iface_ip: Legacy alias for iface_ips.  If this is given and iface_ips is not, this adds the
+            given interface IP to iface_ips.
         :param source_ips: Optional, list of source addresses to restrict the multicast subscription to.  The
             OS will drop messages not from one of these IPs, and may even use special IGMPv3 source-specific
             subscription packets to ask for only those specific multicasts from switches/routers.
@@ -39,7 +42,7 @@ class McastRxSocket:
         :param blocking: Whether reception from this socket blocks.  This can be changed later using settimeout()
         """
         self.addr_family = addr_family
-        self.iface_ip = iface_ip
+        self.iface_ips = iface_ips
         self.mcast_ips = mcast_ips
         self.port = port
         self.source_ips = source_ips
@@ -47,20 +50,37 @@ class McastRxSocket:
         self.is_opened = False
         self.timeout: Optional[float] = None if blocking else 0.0
 
-        if self.iface_ip is None:
-            self.iface_ip = get_default_gateway_iface_ip(self.addr_family)
+        # Handle legacy iface_ip argument if given
+        if iface_ip is not None:
+            if iface_ips is not None:
+                raise MulticastExpertError("Both iface_ips and iface_ip may not be specified at the same time!")
 
-            if self.iface_ip is None:
+            self.iface_ips = [iface_ip]
+
+        if self.iface_ips is None:
+            self.iface_ips = get_interface_ips(addr_family == socket.AF_INET, addr_family == socket.AF_INET6)
+
+            # Don't include the localhost IPs when listening on all interfaces, as that would cause
+            # us to receive all mcasts sent by the current machine.
+            if self.addr_family == socket.AF_INET6 and LOCALHOST_IPV6 in self.iface_ips:
+                self.iface_ips.remove(LOCALHOST_IPV6)
+            if self.addr_family == socket.AF_INET and LOCALHOST_IPV4 in self.iface_ips:
+                self.iface_ips.remove(LOCALHOST_IPV4)
+
+            if len(self.iface_ips) == 0:
                 raise MulticastExpertError(
-                    "iface_ip not specified but unable to determine the default gateway on this machine")
+                    "Unable to discover any listenable interfaces on this machine.")
 
-        # Resolve the interface
-        try:
-            self.iface_info = os_multicast.get_iface_info(self.iface_ip)
-        except KeyError:
-            raise MulticastExpertError(
-                "iface_ip %s does not seem to correspond to a valid interface.  Valid interfaces: %s" %
-                (self.iface_ip, ", ".join(get_interface_ips())))
+        # Resolve the interfaces now.  This prevents having to do this relatively expensive call
+        # multiple times later.
+        self.iface_infos = {}
+        for iface_ip in self.iface_ips:
+            try:
+                self.iface_infos[iface_ip] = os_multicast.get_iface_info(iface_ip)
+            except KeyError:
+                raise MulticastExpertError(
+                    "Interface IP %s does not seem to correspond to a valid interface.  Valid interfaces: %s" %
+                    (iface_ip, ", ".join(get_interface_ips())))
 
         # Sanity check multicast addresses
         for mcast_ip in self.mcast_ips:
@@ -75,47 +95,54 @@ class McastRxSocket:
         if self.is_opened:
             raise MulticastExpertError("Attempt to open an McastRxSocket that is already open!")
 
-        # On Windows, we just have to create one socket and bind it to the interface address, then subscribe
-        # to all multicast addresses.
-        # On Unix, we need one socket bound to each multicast address.
-        if is_windows:
-            bind_ip_and_mcast_ips_list = [(self.iface_ip, self.mcast_ips)]
-        else:
-            bind_ip_and_mcast_ips_list = [(mcast_ip, [mcast_ip]) for mcast_ip in self.mcast_ips]
-
         # Create the sockets and set options
         self.sockets = []
-        for bind_ip_and_mcast_ips in bind_ip_and_mcast_ips_list:
 
-            bind_address = bind_ip_and_mcast_ips[0]
-            mcast_ips = bind_ip_and_mcast_ips[1]
+        # On Windows, we have to create a socket and bind it for each interface address, then subscribe
+        # to all multicast addresses on each of those sockets
+        # On Unix, we need one socket bound to each multicast address, and each of those sockets
+        # can receive from all interfaces.
+        if is_windows:
+            for iface_ip in self.iface_ips:
+                new_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
+                new_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-            new_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
-            new_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                new_socket.bind((iface_ip, self.port))
 
-            if self.addr_family == socket.AF_INET6 and not (is_windows):
-                # Note: for Unix IPv6, need to specify the scope ID in the bind address in order for link-local mcast addresses to work
-                new_socket.bind((bind_address, self.port, 0, self.iface_info.iface_idx))
-            else:
-                new_socket.bind((bind_address, self.port))
+                if self.is_source_specific:
+                    os_multicast.add_source_specific_memberships(new_socket, self.mcast_ips, cast(List[str], self.source_ips), self.iface_infos[iface_ip])
+                else:
+                    os_multicast.add_memberships(new_socket, self.mcast_ips, self.iface_infos[iface_ip], self.addr_family)
 
-            if self.is_source_specific:
-                os_multicast.add_source_specific_memberships(new_socket, mcast_ips, cast(List[str], self.source_ips), self.iface_info)
-            else:
-                os_multicast.add_memberships(new_socket, mcast_ips, self.iface_info, self.addr_family)
-
-            # On Windows, by default, sent packets are looped back to local sockets on the same interface, even for interfaces
-            # that are not loopback.  Change this by disabling IP_MULTICAST_LOOP unless the loopback interface is used.
-            # Note that this is *completely and totally different* from what the Win32 docs say that this option does.
-
-            if is_windows:  
-                loop_enabled = (self.iface_ip == LOCALHOST_IPV4 or self.iface_ip == LOCALHOST_IPV6)
+                # On Windows, by default, sent packets are looped back to local sockets on the same interface, even for interfaces
+                # that are not loopback.  Change this by disabling IP_MULTICAST_LOOP unless the loopback interface is used.
+                # Note: multicast_expert submitted a PR to clarify this in the Windows docs, and it was accepted!
+                loop_enabled = (iface_ip == LOCALHOST_IPV4 or iface_ip == LOCALHOST_IPV6)
                 if self.addr_family == socket.AF_INET:
                     new_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, loop_enabled)
                 else:
                     new_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_LOOP, loop_enabled)
 
-            self.sockets.append(new_socket)
+                self.sockets.append(new_socket)
+        else:
+            for mcast_ip in self.mcast_ips:
+                new_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
+                new_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+                if self.addr_family == socket.AF_INET6 and LOCALHOST_IPV6 in self.iface_ips:
+                    # Note: for Unix IPv6, need to specify the scope ID in the bind address in order for link-local mcast addresses to work.
+                    new_socket.bind((mcast_ip, self.port, 0, self.iface_infos[LOCALHOST_IPV6].iface_idx))
+                else:
+                    new_socket.bind((mcast_ip, self.port))
+
+                # Add memberships on each interface
+                for iface_ip in self.iface_ips:
+                    if self.is_source_specific:
+                        os_multicast.add_source_specific_memberships(new_socket, [mcast_ip], cast(List[str], self.source_ips), self.iface_infos[iface_ip])
+                    else:
+                        os_multicast.add_memberships(new_socket, [mcast_ip], self.iface_infos[iface_ip], self.addr_family)
+
+                self.sockets.append(new_socket)
 
         self.is_opened = True
 
