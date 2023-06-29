@@ -18,10 +18,11 @@ import socket
 import threading
 import sys
 import time
+from typing import Dict, List
 
 import multicast_expert
 
-MULTICAST_ADDRESSES = {
+MULTICAST_ADDRESSES: Dict[int, List[str]] = {
     socket.AF_INET: [
         '239.2.2.0',
         '239.2.2.1',
@@ -41,17 +42,19 @@ MULTICAST_ADDRESSES = {
 PORT=34348
 
 
-def listener_thread(machine_index: int, addr_family: int):
+def listener_thread(machine_index: int, addr_family: int) -> None:
 
-    mcast_ips_to_listen= [
+    mcast_ips_to_listen = [
         MULTICAST_ADDRESSES[addr_family][0],
         MULTICAST_ADDRESSES[addr_family][(machine_index % 3) + 1]
     ]
     with multicast_expert.McastRxSocket(addr_family, mcast_ips=mcast_ips_to_listen, port=PORT, blocking=True) as rx_socket:
         while True:
-            packet, sender_addr = rx_socket.recvfrom()
+            recv_result = rx_socket.recvfrom()
+            if recv_result is not None:
+                packet, sender_addr = recv_result
 
-            print("Rx from %s:%d: %s" % (sender_addr[0], sender_addr[1], packet.decode("UTF-8")))
+                print("Rx from %s:%d: %s" % (sender_addr[0], sender_addr[1], packet.decode("UTF-8")))
 
 
 # Read and check arguments
