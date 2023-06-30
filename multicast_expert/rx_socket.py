@@ -100,8 +100,7 @@ class McastRxSocket:
 
         # On Windows, we have to create a socket and bind it for each interface address, then subscribe
         # to all multicast addresses on each of those sockets
-        # On Unix, we need one socket bound to each multicast address, and each of those sockets
-        # can receive from all interfaces.
+        # On Unix, we need one socket bound to each multicast address.
         if is_windows:
             for iface_ip in self.iface_ips:
                 new_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
@@ -126,23 +125,33 @@ class McastRxSocket:
                 self.sockets.append(new_socket)
         else:
             for mcast_ip in self.mcast_ips:
-                new_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
-                new_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-                if self.addr_family == socket.AF_INET6 and LOCALHOST_IPV6 in self.iface_ips:
-                    # Note: for Unix IPv6, need to specify the scope ID in the bind address in order for link-local mcast addresses to work.
-                    new_socket.bind((mcast_ip, self.port, 0, self.iface_infos[LOCALHOST_IPV6].iface_idx))
+                # For IPv6 on Unix, we need to create one socket for each mcast_ip - iface_ip permutation.
+                # For IPv4, on the systems I tested at least, you can get away with subscribing to multiple
+                # interfaces on one socket.
+                if self.addr_family == socket.AF_INET6:
+                    iface_ip_groups = [[iface_ip] for iface_ip in self.iface_ips]
                 else:
-                    new_socket.bind((mcast_ip, self.port))
+                    iface_ip_groups = [self.iface_ips]
 
-                # Add memberships on each interface
-                for iface_ip in self.iface_ips:
-                    if self.is_source_specific:
-                        os_multicast.add_source_specific_memberships(new_socket, [mcast_ip], cast(List[str], self.source_ips), self.iface_infos[iface_ip])
+                for iface_ips_this_group in iface_ip_groups:
+
+                    new_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
+                    new_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+                    if self.addr_family == socket.AF_INET6 and LOCALHOST_IPV6 == iface_ips_this_group[0]:
+                        # Note: for Unix IPv6, need to specify the scope ID in the bind address in order for link-local mcast addresses to work.
+                        new_socket.bind((mcast_ip, self.port, 0, self.iface_infos[LOCALHOST_IPV6].iface_idx))
                     else:
-                        os_multicast.add_memberships(new_socket, [mcast_ip], self.iface_infos[iface_ip], self.addr_family)
+                        new_socket.bind((mcast_ip, self.port))
 
-                self.sockets.append(new_socket)
+                    for iface_ip in iface_ips_this_group:
+                        if self.is_source_specific:
+                            os_multicast.add_source_specific_memberships(new_socket, [mcast_ip], cast(List[str], self.source_ips), self.iface_infos[iface_ip])
+                        else:
+                            os_multicast.add_memberships(new_socket, [mcast_ip], self.iface_infos[iface_ip], self.addr_family)
+
+                    self.sockets.append(new_socket)
 
         self.is_opened = True
 
