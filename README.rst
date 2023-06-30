@@ -17,7 +17,9 @@ Multicasting Basics
 
 Before I can explain how to use this library, I first need to explain the basics of multicasting itself.  There's not a lot of info out there on the net about how to do multicasting right, and much of what there is is buried deep in OS documentation.  So let's go over some of the basic concepts first.
 
-First and foremost, there is one principle that I need to make clear, or you will not have a good time trying to use multicast.  **Multicasting happens at the network interface level, not the machine level**.  Almost every machine has at least two network interfaces: the loopback interface to itself and the Ethernet/WiFi connection it uses to access the the Internet.  Many machines also have additional interfaces such as bridges to Docker containers/virtual machines, VPNs, or additional private LANs.  With normal (unicast) networking, you simply tell the OS what IP address you want to send a packet to, and it will select the appropriate interface automatically (using a structure called the routing table).  This is not so with multicast!  Every multicast socket needs to be bound to one specific network interface that it will use.  There is no such thing as "bind to 0.0.0.0" or "listen on all addresses"!
+First and foremost, there is one principle that I need to make clear, or you will not have a good time trying to use multicast.  **Sending multicasts happens at the network interface level, not the machine level**.  Almost every machine has at least two network interfaces: the loopback interface to itself and the Ethernet/WiFi connection it uses to access the the Internet.  Many machines also have additional interfaces such as bridges to Docker containers/virtual machines, VPNs, or additional private LANs.  With normal (unicast) networking, you simply tell the OS what IP address you want to send a packet to, and it will select the appropriate interface automatically (using a structure called the routing table).  This is not so with multicast!  Every multicast socket needs to be bound to a specific network interface that it will use.  At the OS level, there is no such thing as "bind to 0.0.0.0" or "listen on all interface"!
+
+However, multicast_expert does allow an "multi-interface" mode which combines together multiple OS sockets to allow listening for incoming multicasts on several or all network interfaces.  This allows "bind to 0.0.0.0"-like behavior for Rx sockets only!
 
 Now that we've gotten that out of the way, we can cover the four essential topics for multicast: multicast addresses, understanding network routing, creating a transmitter, and creating a receiver.
 
@@ -51,7 +53,7 @@ Ethernet Switch (IGMP Snooping Enabled)   Forwards to any hosts that have subscr
 Router                                    Depends on configuration.
 ========================================= ============================================
 
-**NOTE:** Be careful of boxes with unexpected behavior!  Multicast is one of the more rarely used features of IP and often does not seem to be well tested.  In my time working with multicast, I've seen a number of devices that do not implement the standard as I've written it here.  For instance, some switches can individually have IGMP snooping enabled/disabled on each port, producing unexpected behavior.  I think the worst was a desktop switch which worked fine out of the box but started dropping most multicast traffic when IGMP snooping was enabled!
+**NOTE:** Be careful of boxes with unexpected behavior!  Multicast is one of the more rarely used features of IP and often does not seem to be well tested.  In my time working with multicast, I've seen a number of devices that do not implement the standard as I've written it here.  For instance, some switches can individually have IGMP snooping enabled/disabled on each port, producing unexpected behavior.  I think the worst was a desktop switch which seemed to work fine initially but started dropping most multicast traffic when IGMP snooping was enabled!
 
 Since lots of devices come with weird multicast settings out of the box, prepare to have to check and fix the configuration on each switch/device when you start using multicast on your network.
 
@@ -127,12 +129,12 @@ Q: Can I create multiple McastRxSockets on the same port and interface?
     A: As long as they have different mcast addresses, then yes, this works how you'd expect.
 
 Q: Is it possible to receive multicasts on all interfaces with a single socket?
-    A: For reception, this should be possible; it may be implemented in a future version of the library.
+    A: Yes!  As of multicast_expert 1.2.0, the default behavior of McastRxSocket, when you do not pass any interface IP addresses explicitly, is to listen on all non-loopback interfaces of the machine.
 
 Q: Why are my multicasts to the loopback device not going through in Linux?
     A: Linux seems to be very picky about what it allows through loopback.  First of all, you need to use ``ip route`` to add a route directing your multicast address to the ``lo`` interface.  For example, the command ``sudo ip route add 239.2.2.0/24 dev lo`` would allow any multicasts in the 239.2.2.x range through loopback.
 
-    Additionally, for IPv6, I have found that multicasts to addresses that don't start with ``ffx1`` (i.e. non-interface-local addresses) do not seem to be sent on loopback.  Still trying to find any document explaining this behavior...
+    Additionally, for IPv6, I have found that multicasts to addresses that don't start with ``ffx1`` for any value of x (i.e. non-interface-local addresses) do not seem to be sent on loopback.  Still trying to find any document explaining this behavior...
 
 Q: My multicasts aren't being received in Linux, even though I see them coming in in packet dumps.
     A: On Linux, you must also be careful of a kernel feature called Reverse Path Filtering (RPF).  You see, in most cases, multicast doesn't care about unicast IPs or subnets -- you can quite easily have a machine with IP 10.0.0.1 send multicasts to 192.168.1.2, even though those are on different subnets so they can't normally communicate.  However, RPF throws a wrench in this.  In its default "loose" mode (setting 2), it blocks reception of IP packets if they come from an IP address not reachable by any interface.  So, for example, if you receive a multicast from 10.0.0.1 but you only have routes in your routing table for 192.168.x.x IP addresses, the kernel will summarily drop the packet.  The easiest fix is to label one of your network interfaces as a default route.  This makes all IP addresses reachable from an interface, so all packets will be able to get by the check.
