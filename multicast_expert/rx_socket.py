@@ -140,7 +140,6 @@ class McastRxSocket:
                     new_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
                     new_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-                    print(f"mcast_ip={mcast_ip}, iface_ips_this_group={repr(iface_ips_this_group)}")
                     if self.addr_family == socket.AF_INET6:
                         # Note: for Unix IPv6, need to specify the scope ID in the bind address in order for link-local mcast addresses to work.
                         new_socket.bind((mcast_ip, self.port, 0, self.iface_infos[iface_ips_this_group[0]].iface_idx))
