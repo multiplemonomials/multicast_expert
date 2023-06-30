@@ -1,5 +1,5 @@
 import socket
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union, Tuple
 import ipaddress
 import platform
 
@@ -8,12 +8,19 @@ import netifaces
 is_windows = platform.system() == "Windows"
 is_mac = platform.system() == "Darwin"
 
+
+# Type which can represent an IPv4 or an IPv6 address.
+# For IPv4, address is a tuple of IP address (str) and port number.
+# For IPv6, address is a tuple of IP address (str), port number, flow info (int), and scope ID (int).
+IPv4Or6Address = Union[Tuple[str, int], Tuple[str, int, int, int]]
+
+
 # Exception class for this library
 class MulticastExpertError(RuntimeError):
     pass
 
 
-def get_interface_ips(include_ipv4=True, include_ipv6=True) -> List[str]:
+def get_interface_ips(include_ipv4: bool = True, include_ipv6: bool = True) -> List[str]:
     """
     Use this function to get a list of all the interface IP addresses available on this machine.
     Should be useful for generating help menus / info messages / etc.
@@ -28,7 +35,7 @@ def get_interface_ips(include_ipv4=True, include_ipv6=True) -> List[str]:
     ip_list = []
     for interface in netifaces.interfaces():
 
-        all_addresses: List[Dict] = []
+        all_addresses: List[Dict[str, str]] = []
         addresses_at_each_level = netifaces.ifaddresses(interface)
 
         if include_ipv4:
@@ -85,13 +92,13 @@ def get_default_gateway_iface_ip(addr_family: int) -> Optional[str]:
     default_gateway_iface = default_gateway[1] # element 1 is the iface name, per the docs
 
     # Now, use the interface name to get the IP address of that interface
-    interface_addresses = netifaces.ifaddresses(default_gateway_iface)
+    interface_addresses: Dict[int, List[Dict[str, str]]] = netifaces.ifaddresses(default_gateway_iface)
     if addr_family not in interface_addresses:
         return None
     return interface_addresses[addr_family][0]["addr"]
 
 
-def validate_mcast_ip(mcast_ip: str, addr_family: int):
+def validate_mcast_ip(mcast_ip: str, addr_family: int) -> None:
     """
     Validate that the given mcast_ip is a valid multicast address in the given addr family (IPv4 or IPv6).
     An exception is thrown if validation fails.

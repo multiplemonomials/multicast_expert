@@ -4,7 +4,7 @@ import platform
 import socket
 import struct
 import ctypes
-from typing import List
+from typing import List, Optional, Dict
 from dataclasses import dataclass
 from .utils import is_mac, is_windows
 
@@ -24,9 +24,9 @@ def iface_ip_to_name(iface_ip: str) -> str:
 
     # Go from IP to interface name using netifaces.  To do that, we have to iterate through
     # all of the machine's interfaces
-    iface_name = None
+    iface_name: Optional[str] = None
     for interface in netifaces.interfaces():
-        addresses_at_each_level = netifaces.ifaddresses(interface)
+        addresses_at_each_level: Dict[int, List[Dict[str, str]]] = netifaces.ifaddresses(interface)
         for address_family in [netifaces.AF_INET, netifaces.AF_INET6]:
             if address_family in addresses_at_each_level:
                 for address in addresses_at_each_level[address_family]:
@@ -118,7 +118,7 @@ def make_ipv6_mreq_struct(mcast_ip: str, iface_info: IfaceInfo) -> bytes:
     return struct.pack("=16sI", socket.inet_pton(socket.AF_INET6, mcast_ip), iface_info.iface_idx)
 
 
-def set_multicast_if(mcast_socket: socket.socket, mcast_ips: List[str], iface_info: IfaceInfo, addr_family: int):
+def set_multicast_if(mcast_socket: socket.socket, mcast_ips: List[str], iface_info: IfaceInfo, addr_family: int) -> None:
     """
     Set the IP_MULTICAST_IF / IPV6_MULTICAST_IF socket option to an interface on a given socket.
     Note that this option needs 4 different code paths to set it, on Windows IPv6 / Windows IPv4 / Unix IPv6 / Unix IPv4
@@ -146,7 +146,7 @@ def set_multicast_if(mcast_socket: socket.socket, mcast_ips: List[str], iface_in
             mcast_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_IF, struct.pack("I", iface_info.iface_idx))
 
 
-def add_memberships(mcast_socket: socket.socket, mcast_ips: List[str], iface_info: IfaceInfo, addr_family: int):
+def add_memberships(mcast_socket: socket.socket, mcast_ips: List[str], iface_info: IfaceInfo, addr_family: int) -> None:
     """
     Add a non-source-specific membership for the given multicast IPs on the given socket.
     """
@@ -170,7 +170,7 @@ def add_memberships(mcast_socket: socket.socket, mcast_ips: List[str], iface_inf
                 mcast_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, make_ipv6_mreq_struct(mcast_ip, iface_info))
 
 
-def add_source_specific_memberships(mcast_socket: socket.socket, mcast_ips: List[str], source_ips: List[str], iface_info: IfaceInfo):
+def add_source_specific_memberships(mcast_socket: socket.socket, mcast_ips: List[str], source_ips: List[str], iface_info: IfaceInfo) -> None:
     """
     Add a source-specific membership for the given multicast IPs on the given socket, with the given sources.
     Currently only supports IPv6.
@@ -200,4 +200,4 @@ def add_source_specific_memberships(mcast_socket: socket.socket, mcast_ips: List
                                                 socket.inet_aton(iface_info.iface_ip), # imr_interface
                                                 socket.inet_aton(source_ip)) # imr_sourceaddr
 
-            mcast_socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_SOURCE_MEMBERSHIP, mreq_source_bytes)
+            mcast_socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_SOURCE_MEMBERSHIP, mreq_source_bytes) # type: ignore[attr-defined]

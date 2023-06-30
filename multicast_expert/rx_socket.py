@@ -1,11 +1,14 @@
+from __future__ import annotations
+
 import platform
 import select
 import socket
 import struct
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Type, cast, Union
+from types import TracebackType
 import ctypes
 
-from .utils import get_interface_ips, get_default_gateway_iface_ip, validate_mcast_ip, MulticastExpertError, is_mac, is_windows
+from .utils import get_interface_ips, get_default_gateway_iface_ip, validate_mcast_ip, MulticastExpertError, is_mac, is_windows, IPv4Or6Address
 from . import os_multicast, LOCALHOST_IPV6, LOCALHOST_IPV4
 
 class McastRxSocket:
@@ -13,7 +16,7 @@ class McastRxSocket:
     Class to wrap a socket that receives from one or more multicast groups.
     """
 
-    def __init__(self, addr_family: int, mcast_ips: List[str], port: int, iface_ip: str=None, source_ips: List[str]=None, blocking=True):
+    def __init__(self, addr_family: int, mcast_ips: List[str], port: int, iface_ip: Optional[str] = None, source_ips: Optional[List[str]] = None, blocking: bool = True):
         """
         Create a socket which receives UDP datagrams over multicast.  The socket must be opened
         (e.g. using a with statement) before it can be used.
@@ -42,7 +45,7 @@ class McastRxSocket:
         self.source_ips = source_ips
 
         self.is_opened = False
-        self.timeout = None if blocking else 0
+        self.timeout: Optional[float] = None if blocking else 0.0
 
         if self.iface_ip is None:
             self.iface_ip = get_default_gateway_iface_ip(self.addr_family)
@@ -68,7 +71,7 @@ class McastRxSocket:
         if self.is_source_specific and self.addr_family == socket.AF_INET6:
             raise MulticastExpertError("Source-specific multicast currently cannot be used with IPv6!")
 
-    def __enter__(self):
+    def __enter__(self) -> McastRxSocket:
         if self.is_opened:
             raise MulticastExpertError("Attempt to open an McastRxSocket that is already open!")
 
@@ -97,7 +100,7 @@ class McastRxSocket:
                 new_socket.bind((bind_address, self.port))
 
             if self.is_source_specific:
-                os_multicast.add_source_specific_memberships(new_socket, mcast_ips, self.source_ips, self.iface_info)
+                os_multicast.add_source_specific_memberships(new_socket, mcast_ips, cast(List[str], self.source_ips), self.iface_info)
             else:
                 os_multicast.add_memberships(new_socket, mcast_ips, self.iface_info, self.addr_family)
 
@@ -118,7 +121,7 @@ class McastRxSocket:
 
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Optional[Type[BaseException]], exc: Optional[BaseException], traceback: Optional[TracebackType]) -> None:
 
         if not self.is_opened:
             raise MulticastExpertError("Attempt to close an McastRxSocket that is already closed!")
@@ -128,7 +131,7 @@ class McastRxSocket:
             socket.close()
         self.is_opened = False
 
-    def recvfrom(self, bufsize=4096, flags=0) -> Optional[Tuple[bytes, Tuple]]:
+    def recvfrom(self, bufsize: int = 4096, flags: int = 0) -> Optional[Tuple[bytes, IPv4Or6Address]]:
         """
         Receive a UDP packet from the socket, returning the bytes and the sender address.
         This respects the current blocking and timeout settings.
@@ -137,7 +140,7 @@ class McastRxSocket:
         manual for that function for details.
 
         :return: Tuple of (bytes, address).  For IPv4, address is a tuple of IP address (str) and port number.
-            For IPv6, address is a tuple of IP address (str), port number, flow info, and scope ID.
+            For IPv6, address is a tuple of IP address (str), port number, flow info (int), and scope ID (int).
             If no packets were received (nonblocking mode or timeout), None is returned.
         """
 
@@ -149,9 +152,9 @@ class McastRxSocket:
             return None
 
         # Since we only want to return one packet at a time, just pick the first readable socket.
-        return read_list[0].recvfrom(bufsize, flags)
+        return cast(Tuple[bytes, IPv4Or6Address], read_list[0].recvfrom(bufsize, flags))
 
-    def recv(self, bufsize=4096, flags=0) -> Optional[bytes]:
+    def recv(self, bufsize: int = 4096, flags: int = 0) -> Optional[bytes]:
         """
         Receive a UDP packet from the socket, returning the bytes.
         This respects the current blocking and timeout settings.
@@ -176,7 +179,7 @@ class McastRxSocket:
         """
         return [socket.fileno() for socket in self.sockets]
 
-    def settimeout(self, timeout: float):
+    def settimeout(self, timeout: float) -> None:
         """
         Set the timeout on socket operations.  Behavior depends on the value passed for timeout:
 

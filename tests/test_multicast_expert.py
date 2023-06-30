@@ -12,7 +12,8 @@ test_string = b'Test of Multicast!'
 test_string_alternate = b'Test of Multicast -- alternate address!'
 port = 12345
 
-def test_get_ifaces():
+
+def test_get_ifaces() -> None:
     """
     Simple test, just prints the interfaces available on the current machine
     :return:
@@ -24,16 +25,16 @@ def test_get_ifaces():
     print("\n".join(multicast_expert.get_interface_ips(include_ipv4=False, include_ipv6=True)))
 
 
-def test_get_default_gateway():
+def test_get_default_gateway() -> None:
     """
     Simple test, just prints the default gateway ifaces on the current machine
     :return:
     """
-    print("\nIPv4 Default Gateway Interface: " + multicast_expert.get_default_gateway_iface_ip_v4())
-    print("IPv6 Default Gateway Interface: " + multicast_expert.get_default_gateway_iface_ip_v6())
+    print("\nIPv4 Default Gateway Interface: " + str(multicast_expert.get_default_gateway_iface_ip_v4()))
+    print("IPv6 Default Gateway Interface: " + str(multicast_expert.get_default_gateway_iface_ip_v6()))
 
 
-def test_tx_v4_can_be_used():
+def test_tx_v4_can_be_used() -> None:
     """
     Sanity check that a Tx IPv4 socket can be opened and used using the default gateway
     :return:
@@ -43,7 +44,7 @@ def test_tx_v4_can_be_used():
         mcast_sock.sendto(b'Hello IPv4', (mcast_address_v4, port))
 
 
-def test_tx_v6_can_be_used():
+def test_tx_v6_can_be_used() -> None:
     """
     Sanity check that a Tx IPv6 socket can be opened and used using the default gateway
     :return:
@@ -53,7 +54,7 @@ def test_tx_v6_can_be_used():
         mcast_sock.sendto(b'Hello IPv6', (mcast_address_v6, port))
 
 
-def test_non_mcast_raises_error():
+def test_non_mcast_raises_error() -> None:
     """
     Check that trying to use a non-multicast address raises an error
     """
@@ -65,7 +66,7 @@ def test_non_mcast_raises_error():
         multicast_expert.McastTxSocket(socket.AF_INET6, mcast_ips=['abcd::'])
 
 
-def test_rx_v4_can_be_opened():
+def test_rx_v4_can_be_opened() -> None:
     """
     Sanity check that a Rx IPv4 socket can be opened using the default gateway
     """
@@ -74,7 +75,7 @@ def test_rx_v4_can_be_opened():
         pass
 
 
-def test_rx_v4_ssm_can_be_opened():
+def test_rx_v4_ssm_can_be_opened() -> None:
     """
     Sanity check that a Rx IPv4 Source-Specific Multicast socket can be opened using the default gateway
     """
@@ -83,7 +84,7 @@ def test_rx_v4_ssm_can_be_opened():
         pass
 
 
-def test_rx_v6_can_be_opened():
+def test_rx_v6_can_be_opened() -> None:
     """
     Sanity check that a Rx IPv6 socket can be opened using the default gateway
     """
@@ -92,7 +93,7 @@ def test_rx_v6_can_be_opened():
         pass
 
 
-def test_v4_loopback():
+def test_v4_loopback() -> None:
     """
     Check that a packet can be sent to the loopback address and received using IPv4 multicast.
     """
@@ -118,11 +119,12 @@ def test_v4_loopback():
             packet = mcast_rx_sock.recvfrom()
 
             print("\nRx: " + repr(packet))
+            assert packet is not None
             assert packet[0] == test_string
             assert packet[1] == (multicast_expert.LOCALHOST_IPV4, mcast_tx_sock.getsockname()[1])
 
 
-def test_v4_ssm_loopback():
+def test_v4_ssm_loopback() -> None:
     """
     Check that a packet can be sent to the loopback address and received using IPv4 source-specific multicast.
     Note: With only one host we cannot actually test the source-specific features, but at least we can check
@@ -147,11 +149,12 @@ def test_v4_ssm_loopback():
             packet = mcast_rx_sock.recvfrom()
 
             print("\nRx: " + repr(packet))
+            assert packet is not None
             assert packet[0] == test_string
             assert packet[1] == (multicast_expert.LOCALHOST_IPV4, mcast_tx_sock.getsockname()[1])
 
 
-def test_v6_loopback():
+def test_v6_loopback() -> None:
     """
     Check that a packet can be sent to the loopback address and received using IPv6 multicast.
     """
@@ -177,12 +180,13 @@ def test_v6_loopback():
             packet = mcast_rx_sock.recvfrom()
 
             print("\nRx: " + repr(packet))
+            assert packet is not None
             assert packet[0] == test_string
             assert packet[1][0:2] == (multicast_expert.LOCALHOST_IPV6, mcast_tx_sock.getsockname()[1])
 
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Does not pass on Windows")
-def test_v4_unicast_blocked():
+def test_v4_unicast_blocked() -> None:
     """
     Check that unicast packets cannot be received by a multicast socket
     """
@@ -202,7 +206,7 @@ def test_v4_unicast_blocked():
 
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Does not pass on Windows")
-def test_v6_unicast_blocked():
+def test_v6_unicast_blocked() -> None:
     """
     Check that unicast packets cannot be received by a multicast socket
     """
@@ -221,7 +225,7 @@ def test_v6_unicast_blocked():
         tx_socket.close()
 
 
-def test_v4_loopback_multiple():
+def test_v4_loopback_multiple() -> None:
     """
     Check that we can open two different Rx sockets on the same port but different addresses, and use them
     with correct routing.
@@ -259,17 +263,19 @@ def test_v4_loopback_multiple():
                     packet = mcast_rx_sock.recvfrom()
 
                     print("\nRx: " + repr(packet))
+                    assert packet is not None
                     assert packet[0] == test_string
                     assert packet[1] == (multicast_expert.LOCALHOST_IPV4, mcast_tx_sock.getsockname()[1])
 
                     packet_alt = mcast_rx_sock_alt.recvfrom()
 
                     print("\nRx: " + repr(packet_alt))
+                    assert packet_alt is not None
                     assert packet_alt[0] == test_string_alternate
                     assert packet_alt[1] == (multicast_expert.LOCALHOST_IPV4, mcast_tx_sock_alt.getsockname()[1])
 
 
-def test_v6_loopback_multiple():
+def test_v6_loopback_multiple() -> None:
     """
     Check that we can open two different Rx sockets on the same port but different addresses, and use them
     with correct routing.
@@ -307,11 +313,13 @@ def test_v6_loopback_multiple():
                     packet = mcast_rx_sock.recvfrom()
 
                     print("\nRx: " + repr(packet))
+                    assert packet is not None
                     assert packet[0] == test_string
                     assert packet[1][0:2] == (multicast_expert.LOCALHOST_IPV6, mcast_tx_sock.getsockname()[1])
 
                     packet_alt = mcast_rx_sock_alt.recvfrom()
 
                     print("\nRx: " + repr(packet_alt))
+                    assert packet_alt is not None
                     assert packet_alt[0] == test_string_alternate
                     assert packet_alt[1][0:2] == (multicast_expert.LOCALHOST_IPV6, mcast_tx_sock_alt.getsockname()[1])

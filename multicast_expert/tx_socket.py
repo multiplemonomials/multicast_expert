@@ -1,18 +1,22 @@
+from __future__ import annotations
+
 import platform
 import socket
 import struct
-from typing import List, Tuple
+from typing import List, Tuple, Optional, Type
+from types import TracebackType
 import ctypes
 
-from .utils import get_interface_ips, validate_mcast_ip, get_default_gateway_iface_ip, MulticastExpertError, is_mac, is_windows
+from .utils import get_interface_ips, validate_mcast_ip, get_default_gateway_iface_ip, MulticastExpertError, is_mac, is_windows, IPv4Or6Address
 from . import os_multicast, LOCALHOST_IPV4, LOCALHOST_IPV6
+
 
 class McastTxSocket:
     """
     Class to wrap a socket that sends to one or more multicast groups.
     """
 
-    def __init__(self, addr_family: int, mcast_ips: List[str], iface_ip: str=None, ttl: int=1):
+    def __init__(self, addr_family: int, mcast_ips: List[str], iface_ip: Optional[str] = None, ttl: int = 1):
         """
         Create a socket which transmits UDP datagrams over multicast.  The socket must be opened
         (e.g. using a with statement) before it can be used.
@@ -52,7 +56,7 @@ class McastTxSocket:
         for mcast_ip in self.mcast_ips:
             validate_mcast_ip(mcast_ip, self.addr_family)
 
-    def __enter__(self):
+    def __enter__(self) -> McastTxSocket:
         if self.is_opened:
             raise MulticastExpertError("Attempt to open an McastTxSocket that is already open!")
 
@@ -86,7 +90,7 @@ class McastTxSocket:
 
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Optional[Type[BaseException]], exc: Optional[BaseException], traceback: Optional[TracebackType]) -> None:
 
         if not self.is_opened:
             raise MulticastExpertError("Attempt to close an McastTxSocket that is already closed!")
@@ -95,13 +99,13 @@ class McastTxSocket:
         self.socket.close()
         self.is_opened = False
 
-    def sendto(self, bytes: bytes, address: Tuple[str, int]):
+    def sendto(self, bytes: bytes, address: IPv4Or6Address) -> None:
         """
         Send a UDP datagram containing the given bytes out of the socket to the given destination
         address.
 
-        :param bytes Bytes to send:
-        :param address Tuple of the destination multicast address and the destination port:
+        :param bytes: Bytes to send
+        :param address: Tuple of the destination multicast address and the destination port
         """
 
         if address[0] not in self.mcast_ips_set:
@@ -119,4 +123,4 @@ class McastTxSocket:
         """
         Get the local IP and port that this socket bound itself to.
         """
-        return self.socket.getsockname()
+        return self.socket.getsockname()  # type: ignore[no-any-return]

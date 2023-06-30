@@ -12,7 +12,8 @@ python -m poetry shell # This activates a virtual environment containing the dep
 
 ### Running Tests
 ```
-python -m pytest .
+python -m mypy . # Checks types
+python -m pytest . # Checks actual code
 ```
 
 ### Uploading to PyPi
