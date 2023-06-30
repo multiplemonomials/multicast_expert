@@ -149,7 +149,11 @@ Q: If I have a socket that receives from multiple mcast addresses, say A and B, 
 Changelog
 =========
 
-v1.2.1- Jun 29, 2023
+v1.2.2 - Jun 30, 2023
+*********************
+* Fix some mypy errors that were visible for users of the library.
+
+v1.2.1 - Jun 29, 2023
 *********************
 * Fix IPv6 McastRxSocket being broken on Linux when multiple interfaces where used (need to open an OS socket for each interface ip-mcast ip permutation)
 

@@ -42,7 +42,6 @@ class McastRxSocket:
         :param blocking: Whether reception from this socket blocks.  This can be changed later using settimeout()
         """
         self.addr_family = addr_family
-        self.iface_ips = iface_ips
         self.mcast_ips = mcast_ips
         self.port = port
         self.source_ips = source_ips
@@ -55,10 +54,10 @@ class McastRxSocket:
             if iface_ips is not None:
                 raise MulticastExpertError("Both iface_ips and iface_ip may not be specified at the same time!")
 
-            self.iface_ips = [iface_ip]
+            self.iface_ips: List[str] = [iface_ip]
 
-        if self.iface_ips is None:
-            self.iface_ips = get_interface_ips(addr_family == socket.AF_INET, addr_family == socket.AF_INET6)
+        elif iface_ips is None:
+            self.iface_ips: List[str] = get_interface_ips(addr_family == socket.AF_INET, addr_family == socket.AF_INET6) # type: ignore[no-redef]
 
             # Don't include the localhost IPs when listening on all interfaces, as that would cause
             # us to receive all mcasts sent by the current machine.
@@ -70,6 +69,8 @@ class McastRxSocket:
             if len(self.iface_ips) == 0:
                 raise MulticastExpertError(
                     "Unable to discover any listenable interfaces on this machine.")
+        else:
+            self.iface_ips = iface_ips # type: ignore[no-redef]
 
         # Resolve the interfaces now.  This prevents having to do this relatively expensive call
         # multiple times later.

@@ -28,16 +28,18 @@ LOCALHOST_IPV6 = "::1"
 
 # Utility functions
 # ------------------------------------------------------------------------------------------------------
-from .utils import get_interface_ips
-from .utils import get_default_gateway_iface_ip_v4
-from .utils import get_default_gateway_iface_ip_v6
-from .utils import get_default_gateway_iface_ip
-from .utils import MulticastExpertError
+
+# Note: the "as" clause is needed to satisfy mypy's "no-implicit-reexport" check
+from .utils import get_interface_ips as get_interface_ips
+from .utils import get_default_gateway_iface_ip_v4 as get_default_gateway_iface_ip_v4
+from .utils import get_default_gateway_iface_ip_v6 as get_default_gateway_iface_ip_v6
+from .utils import get_default_gateway_iface_ip as get_default_gateway_iface_ip
+from .utils import MulticastExpertError as MulticastExpertError
 
 # Transmit socket
 # ------------------------------------------------------------------------------------------------------
-from .tx_socket import McastTxSocket
+from .tx_socket import McastTxSocket as McastTxSocket
 
 # Receive socket
 # ------------------------------------------------------------------------------------------------------
-from .rx_socket import McastRxSocket
+from .rx_socket import McastRxSocket as McastRxSocket
