@@ -149,6 +149,10 @@ Q: If I have a socket that receives from multiple mcast addresses, say A and B, 
 Changelog
 =========
 
+v1.2.1- Jun 29, 2023
+*********************
+* Fix IPv6 McastRxSocket being broken on Linux when multiple interfaces where used (need to open an OS socket for each interface ip-mcast ip permutation)
+
 v1.2.0 - Jun 29, 2023
 *********************
 * An McastRxSocket can now listen on multiple interface IPs at once via passing a list of interface addresses to the new ``iface_ips`` parameter.  The old ``iface_ip`` parameter is retained for compatibility.
