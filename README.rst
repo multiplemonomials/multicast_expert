@@ -145,3 +145,33 @@ Q: My multicasts aren't being received in Linux, even though I see them coming i
 
 Q: If I have a socket that receives from multiple mcast addresses, say A and B, and I receive a packet, how do I tell whether the packet was sent to multicast address A or B?
     A: You can't, or at least I haven't found a way to do this from Python.  You'll need to create multiple sockets if you need this information.
+
+Changelog
+=========
+
+v1.2.0 - Jun 29, 2023
+*********************
+* An McastRxSocket can now listen on multiple interface IPs at once via passing a list of interface addresses to the new ``iface_ips`` parameter.  The old ``iface_ip`` parameter is retained for compatibility.
+* If no interface IPs are specified, McastRxSocket now listens on all non-loopback interfaces instead of just the default gateway.  This should provide more intuitive default behavior for applications where the interface for receiving isn't known.
+* Type annotations now applied to everything, library passes mypy in strict mode.
+* py.typed file now provided so that mypy can see type annotations provided by multicast_expert in your own projects.
+
+v1.1.2 - May 16, 2023
+*********************
+* Another hotfix for a typo in v1.1.0
+
+v1.1.1 - May 16, 2023
+*********************
+* Hotfix for a missing import in v1.1.0.  Forgot to run unit tests one last time before uploading to pypi 🤦‍♂️
+
+v1.1.0 - May 15, 2023
+*********************
+* Add mac compatibility (now that I finally have someone to help test who possesses a mac).  Previously only Windows and Linux were properly supported.
+
+v1.0.1 - Aug 13, 2022
+*********************
+* Documentation updates
+
+v1.0.0 - Aug 13, 2022
+*********************
+* Initial release!
