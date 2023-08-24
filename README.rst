@@ -146,6 +146,29 @@ Q: My multicasts aren't being received in Linux, even though I see them coming i
 Q: If I have a socket that receives from multiple mcast addresses, say A and B, and I receive a packet, how do I tell whether the packet was sent to multicast address A or B?
     A: You can't, or at least I haven't found a way to do this from Python.  You'll need to create multiple sockets if you need this information.
 
+Q: What if, rather than using a Multicast Expert socket inside a single ``with`` block, I want to create it, store it, and then close it later in a separate function?
+    A: This is a not-uncommon problem for Python users, and a lot of people will try to work around it by calling ``__enter__`` and ``__exit__`` directly.  However, this is not a very good way as it is likely to leave the sockets un-cleaned-up if an exception occurs.  The best solution I know of is to use `contextlib.ExitStack`, which allows you to "transfer" ownership of the socket into a standalone object which can be closed manually later.  Here's an example:
+
+.. code-block:: python
+
+    import multicast_expert
+    import contextlib
+
+    class McastUser():
+
+        def init():
+            self.mcast_socket = multicast_expert.McastTxSocket(...)
+            with contextlib.ExitStack as temp_exit_stack: # Creates a temporary ExitStack
+                temp_exit_stack.enter_context(self.mcast_socket) # Enter the mcast socket using the temporary stack
+                self.exit_stack = temp_exit_stack.pop_all() # Creates a new exit stack with ownership of mcast_socket "moved" into it
+        
+        def deinit():
+            if self.exit_stack is not None:
+                self.exit_stack.close() # This exits each object saved in the stack
+            self.exit_stack = None
+
+With this setup, the socket will be opened when you call ``init()``, and will stay open until someone calls ``deinit()``.  Note however that this transfers the responsibility for closing the socket onto you: if you forget to call ``deinit()`` before you're done using the class, the socket could stay open longer than intended.
+
 Changelog
 =========
 
@@ -155,7 +178,7 @@ v1.2.2 - Jun 30, 2023
 
 v1.2.1 - Jun 29, 2023
 *********************
-* Fix IPv6 McastRxSocket being broken on Linux when multiple interfaces where used (need to open an OS socket for each interface ip-mcast ip permutation)
+* Fix IPv6 McastRxSocket being broken on Linux when multiple interfaces were used (need to open an OS socket for each interface ip-mcast ip permutation)
 
 v1.2.0 - Jun 29, 2023
 *********************
