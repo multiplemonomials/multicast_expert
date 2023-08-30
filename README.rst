@@ -169,6 +169,9 @@ Q: What if, rather than using a Multicast Expert socket inside a single ``with``
 
 With this setup, the socket will be opened when you call ``init()``, and will stay open until someone calls ``deinit()``.  Note however that this transfers the responsibility for closing the socket onto you: if you forget to call ``deinit()`` before you're done using the class, the socket could stay open longer than intended.
 
+Q: When I try to send a packet to the loopback address on Windows, I get "[WinError 10051] A socket operation was attempted to an unreachable network"!
+    A: On Windows, to send multicasts through the loopback interface, you must open a listening socket before trying to send packets, or an error will be generated. So, make sure there's an application listing to the loopback interface on the correct port before you send your multicast packet.
+
 Changelog
 =========
 
