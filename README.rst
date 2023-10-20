@@ -175,6 +175,12 @@ Q: When I try to send a packet to the loopback address on Windows, I get "[WinEr
 Changelog
 =========
 
+v1.3.0 - Oct 20, 2023
+*********************
+* Replace ``blocking`` arg to McastRxSocket with ``timeout``, which allows you to set an integer timeout in the constructor. The old argument is still supported but is marked as legacy.
+* Fix the type annotation for McastRxSocket.settimeout() parameter.
+
+
 v1.2.2 - Jun 30, 2023
 *********************
 * Fix some mypy errors that were visible for users of the library.

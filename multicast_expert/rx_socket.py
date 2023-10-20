@@ -18,7 +18,7 @@ class McastRxSocket:
     Class to wrap a socket that receives from one or more multicast groups.
     """
 
-    def __init__(self, addr_family: int, mcast_ips: List[str], port: int, iface_ip: Optional[str] = None, iface_ips: Optional[List[str]] = None, source_ips: Optional[List[str]] = None, blocking: bool = True):
+    def __init__(self, addr_family: int, mcast_ips: List[str], port: int, iface_ip: Optional[str] = None, iface_ips: Optional[List[str]] = None, source_ips: Optional[List[str]] = None, timeout: Optional[float] = None, blocking: Optional[bool] = None):
         """
         Create a socket which receives UDP datagrams over multicast.  The socket must be opened
         (e.g. using a with statement) before it can be used.
@@ -39,7 +39,10 @@ class McastRxSocket:
             OS will drop messages not from one of these IPs, and may even use special IGMPv3 source-specific
             subscription packets to ask for only those specific multicasts from switches/routers.
             This option is only supported for IPv4, currently no major OS supports it with IPv6.
-        :param blocking: Whether reception from this socket blocks.  This can be changed later using settimeout()
+        :param timeout: Timeout for receive operations using this socket.  See settimeout() for how
+            this value is processed.
+        :param blocking: Legacy alias for timeout.  If set to True, timeout is set to None (block forever).  If set to
+            False, timeout is set to 0 (nonblocking).
         """
         self.addr_family = addr_family
         self.mcast_ips = mcast_ips
@@ -47,17 +50,23 @@ class McastRxSocket:
         self.source_ips = source_ips
 
         self.is_opened = False
-        self.timeout: Optional[float] = None if blocking else 0.0
+
+        # blocking overrides timeout if set
+        if blocking is not None:
+            self.timeout: Optional[float] = None if blocking else 0.0
+        else:
+            self.timeout = timeout
 
         # Handle legacy iface_ip argument if given
+        self.iface_ips: List[str]
         if iface_ip is not None:
             if iface_ips is not None:
                 raise MulticastExpertError("Both iface_ips and iface_ip may not be specified at the same time!")
 
-            self.iface_ips: List[str] = [iface_ip]
+            self.iface_ips = [iface_ip]
 
         elif iface_ips is None:
-            self.iface_ips: List[str] = get_interface_ips(addr_family == socket.AF_INET, addr_family == socket.AF_INET6) # type: ignore[no-redef]
+            self.iface_ips = get_interface_ips(addr_family == socket.AF_INET, addr_family == socket.AF_INET6)
 
             # Don't include the localhost IPs when listening on all interfaces, as that would cause
             # us to receive all mcasts sent by the current machine.
@@ -70,7 +79,7 @@ class McastRxSocket:
                 raise MulticastExpertError(
                     "Unable to discover any listenable interfaces on this machine.")
         else:
-            self.iface_ips = iface_ips # type: ignore[no-redef]
+            self.iface_ips = iface_ips
 
         # Resolve the interfaces now.  This prevents having to do this relatively expensive call
         # multiple times later.
@@ -216,7 +225,7 @@ class McastRxSocket:
         """
         return [socket.fileno() for socket in self.sockets]
 
-    def settimeout(self, timeout: float) -> None:
+    def settimeout(self, timeout: Optional[float]) -> None:
         """
         Set the timeout on socket operations.  Behavior depends on the value passed for timeout:
 
