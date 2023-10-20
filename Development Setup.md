@@ -23,5 +23,5 @@ python -m pytest . # Checks actual code
 
 ### Uploading to PyPi
 ```
-python -m poetry publish --build
+python -m poetry publish -u <username> -p <password> --build
 ```
