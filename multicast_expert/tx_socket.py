@@ -62,7 +62,12 @@ class McastTxSocket:
 
         # Open the socket and set options
         self.socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
-        self.socket.bind((self.iface_ip, 0)) # Bind to any available port
+
+        # Note: for Unix IPv6, need to specify the scope ID in the bind address
+        if self.addr_family == socket.AF_INET6 and not is_windows:
+            self.socket.bind((self.iface_ip, 0, 0, self.iface_info.iface_idx))
+        else:
+            self.socket.bind((self.iface_ip, 0)) # Bind to any available port
 
         # Use the IP_MULTICAST_IF option to set the interface to use.
         os_multicast.set_multicast_if(self.socket, self.mcast_ips, self.iface_info, self.addr_family)

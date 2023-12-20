@@ -2,6 +2,7 @@ import multicast_expert
 import socket
 import pytest
 import platform
+import warnings
 
 # Test constants
 mcast_address_v4 = '239.2.2.2'
@@ -11,6 +12,22 @@ mcast_address_v6_alternate = 'ff11::abcf'
 test_string = b'Test of Multicast!'
 test_string_alternate = b'Test of Multicast -- alternate address!'
 port = 12345
+
+@pytest.fixture()
+def nonloopback_iface_ipv6() -> str:
+    """Try to obtain a non-loopback IPv6 interface. If the default interface cannot be found, then use an arbitrary interface."""
+    nonloopback_iface_ipv6 = multicast_expert.get_default_gateway_iface_ip_v6()
+    if nonloopback_iface_ipv6 is None:
+        for iface_ip in multicast_expert.get_interface_ips(include_ipv4=False, include_ipv6=True):
+            if iface_ip != multicast_expert.LOCALHOST_IPV6:
+                nonloopback_iface_ipv6 = iface_ip
+                break
+
+        if nonloopback_iface_ipv6 is None:
+            raise RuntimeError("Couldn't find an ipv6 interface to use for the test!")
+
+        warnings.warn(f"netifaces was not able to determine the default ipv6 gateway on this machine. Using arbitrarily selected interface {nonloopback_iface_ipv6} instead.")
+    return nonloopback_iface_ipv6
 
 
 def test_get_ifaces() -> None:
@@ -44,17 +61,17 @@ def test_tx_v4_can_be_used() -> None:
         mcast_sock.sendto(b'Hello IPv4', (mcast_address_v4, port))
 
 
-def test_tx_v6_can_be_used() -> None:
+def test_tx_v6_can_be_used(nonloopback_iface_ipv6: str) -> None:
     """
     Sanity check that a Tx IPv6 socket can be opened and used using the default gateway
     :return:
     """
 
-    with multicast_expert.McastTxSocket(socket.AF_INET6, mcast_ips=[mcast_address_v6]) as mcast_sock:
+    with multicast_expert.McastTxSocket(socket.AF_INET6, mcast_ips=[mcast_address_v6], iface_ip=nonloopback_iface_ipv6) as mcast_sock:
         mcast_sock.sendto(b'Hello IPv6', (mcast_address_v6, port))
 
 
-def test_non_mcast_raises_error() -> None:
+def test_non_mcast_raises_error(nonloopback_iface_ipv6: str) -> None:
     """
     Check that trying to use a non-multicast address raises an error
     """
@@ -63,7 +80,7 @@ def test_non_mcast_raises_error() -> None:
         multicast_expert.McastTxSocket(socket.AF_INET, mcast_ips=['239.2.2.2', '192.168.5.1'])
 
     with pytest.raises(multicast_expert.MulticastExpertError, match="not a multicast address"):
-        multicast_expert.McastTxSocket(socket.AF_INET6, mcast_ips=['abcd::'])
+        multicast_expert.McastTxSocket(socket.AF_INET6, mcast_ips=['abcd::'], iface_ip=nonloopback_iface_ipv6)
 
 
 def test_rx_v4_can_be_opened() -> None:
@@ -84,12 +101,12 @@ def test_rx_v4_ssm_can_be_opened() -> None:
         pass
 
 
-def test_rx_v6_can_be_opened() -> None:
+def test_rx_v6_can_be_opened(nonloopback_iface_ipv6: str) -> None:
     """
     Sanity check that a Rx IPv6 socket can be opened using the default gateway
     """
 
-    with multicast_expert.McastRxSocket(socket.AF_INET6, mcast_ips=[mcast_address_v6], port=port) as mcast_sock:
+    with multicast_expert.McastRxSocket(socket.AF_INET6, mcast_ips=[mcast_address_v6], port=port, iface_ips=[nonloopback_iface_ipv6]) as mcast_sock:
         pass
 
 

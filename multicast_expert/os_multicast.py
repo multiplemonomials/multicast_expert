@@ -1,6 +1,6 @@
 # Script containing the nitty-gritty OS level functions of multicast_expert.
 
-import platform
+import sys
 import socket
 import struct
 import ctypes
@@ -11,7 +11,7 @@ from .utils import is_mac, is_windows
 import netifaces
 
 # Import needed Win32 DLL functions
-if is_windows:
+if sys.platform == 'win32':
     iphlpapi = ctypes.WinDLL('iphlpapi')
     win32_GetAdapterIndex = iphlpapi.GetAdapterIndex
     win32_GetAdapterIndex.argtypes = [ctypes.c_wchar_p, ctypes.POINTER(ctypes.c_ulong)]
@@ -44,7 +44,7 @@ def iface_name_to_index(iface_name: str) -> int:
     Convert a network interface's name into its interface index.
     """
 
-    if is_windows:
+    if sys.platform == 'win32':
 
         # To get the if index on Windows we have to use the GetAdapterIndex() function.
         # docs here: https://docs.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadapterindex
