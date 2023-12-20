@@ -22,5 +22,8 @@ jobs:
         uses: snok/install-poetry@v1
       - name: Install project
         run: poetry install --no-interaction
+      - name: Configure IP routes # See "Development Setup.md"
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: sudo ip -6 route add table local ff11::/16 dev lo
       - name: Run Pytest
         run: poetry run pytest
