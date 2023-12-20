@@ -27,3 +27,24 @@ jobs:
         run: sudo ip -6 route add table local ff11::/16 dev lo
       - name: Run Pytest
         run: poetry run pytest
+
+  my-py:
+    strategy:
+      matrix:
+        os: ["ubuntu-latest", "windows-latest", "macos-latest"]
+    defaults:
+      run:
+        shell: bash
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.8"
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+      - name: Install project
+        run: poetry install --no-interaction
+      - name: Run Mypy
+        run: poetry run mypy multicast_expert
