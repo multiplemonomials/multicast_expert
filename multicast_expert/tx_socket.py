@@ -64,7 +64,7 @@ class McastTxSocket:
         self.socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
 
         # Note: for Unix IPv6, need to specify the scope ID in the bind address
-        if self.addr_family == socket.AF_INET6:
+        if self.addr_family == socket.AF_INET6 and not is_windows:
             self.socket.bind((self.iface_ip, 0, 0, self.iface_info.iface_idx))
         else:
             self.socket.bind((self.iface_ip, 0)) # Bind to any available port
