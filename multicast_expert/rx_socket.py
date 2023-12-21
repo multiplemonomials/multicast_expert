@@ -18,7 +18,7 @@ class McastRxSocket:
     Class to wrap a socket that receives from one or more multicast groups.
     """
 
-    def __init__(self, addr_family: int, mcast_ips: List[str], port: int, iface_ip: Optional[str] = None, iface_ips: Optional[List[str]] = None, source_ips: Optional[List[str]] = None, timeout: Optional[float] = None, blocking: Optional[bool] = None):
+    def __init__(self, addr_family: int, mcast_ips: List[str], port: int, iface_ip: Optional[str] = None, iface_ips: Optional[List[str]] = None, source_ips: Optional[List[str]] = None, timeout: Optional[float] = None, blocking: Optional[bool] = None, enable_external_loopback: bool = False):
         """
         Create a socket which receives UDP datagrams over multicast.  The socket must be opened
         (e.g. using a with statement) before it can be used.
@@ -43,6 +43,9 @@ class McastRxSocket:
             this value is processed.
         :param blocking: Legacy alias for timeout.  If set to True, timeout is set to None (block forever).  If set to
             False, timeout is set to 0 (nonblocking).
+        :param enable_external_loopback: Enable loopback of multicast packets sent on external interfaces. If and only
+            if this option is set to True, McastRxSockets will be able to receive packets sent by McastTxSockets open on
+            the same address, port, and interface.
         """
         self.addr_family = addr_family
         self.mcast_ips = mcast_ips
@@ -100,6 +103,8 @@ class McastRxSocket:
         self.is_source_specific = not (source_ips is None or len(source_ips) == 0)
         if self.is_source_specific and self.addr_family == socket.AF_INET6:
             raise MulticastExpertError("Source-specific multicast currently cannot be used with IPv6!")
+        
+        self.enable_external_loopback = enable_external_loopback
 
     def __enter__(self) -> McastRxSocket:
         if self.is_opened:
@@ -124,9 +129,10 @@ class McastRxSocket:
                     os_multicast.add_memberships(new_socket, self.mcast_ips, self.iface_infos[iface_ip], self.addr_family)
 
                 # On Windows, by default, sent packets are looped back to local sockets on the same interface, even for interfaces
-                # that are not loopback.  Change this by disabling IP_MULTICAST_LOOP unless the loopback interface is used.
+                # that are not loopback.Change this by disabling IP_MULTICAST_LOOP unless the loopback interface is used or
+                # if enable_external_loopback is set.
                 # Note: multicast_expert submitted a PR to clarify this in the Windows docs, and it was accepted!
-                loop_enabled = (iface_ip == LOCALHOST_IPV4 or iface_ip == LOCALHOST_IPV6)
+                loop_enabled = self.enable_external_loopback or iface_ip == LOCALHOST_IPV4 or iface_ip == LOCALHOST_IPV6
                 if self.addr_family == socket.AF_INET:
                     new_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, loop_enabled)
                 else:
