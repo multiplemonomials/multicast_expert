@@ -341,3 +341,83 @@ def test_v6_loopback_multiple() -> None:
                     assert packet_alt is not None
                     assert packet_alt[0] == test_string_alternate
                     assert packet_alt[1][0:2] == (multicast_expert.LOCALHOST_IPV6, mcast_tx_sock_alt.getsockname()[1])
+
+
+def test_external_loopback_v4() -> None:
+    """
+    Check that packets sent over external interface can be received when `enable_external_loopback` is set.
+    """
+    with multicast_expert.McastTxSocket(socket.AF_INET,
+                                        mcast_ips=[mcast_address_v4],
+                                        enable_external_loopback=True) as tx_socket:
+        assert tx_socket.iface_ip is not None and tx_socket.iface_ip != multicast_expert.LOCALHOST_IPV4
+
+        with multicast_expert.McastRxSocket(socket.AF_INET,
+                                            mcast_ips=[mcast_address_v4],
+                                            iface_ips=[tx_socket.iface_ip],
+                                            port=port,
+                                            timeout=1,
+                                            enable_external_loopback=True) as rx_socket:
+            tx_socket.sendto(test_string, (mcast_address_v4, port))
+            data = rx_socket.recv()
+            assert data == test_string
+
+
+def test_external_loopback_v6(nonloopback_iface_ipv6: str) -> None:
+    """
+    Check that packets sent over external interface can be received when `enable_external_loopback` is set.
+    """
+    with multicast_expert.McastTxSocket(socket.AF_INET6,
+                                        mcast_ips=[mcast_address_v6],
+                                        iface_ip=nonloopback_iface_ipv6,
+                                        enable_external_loopback=True) as tx_socket:
+        with multicast_expert.McastRxSocket(socket.AF_INET6,
+                                            mcast_ips=[mcast_address_v6],
+                                            iface_ips=[nonloopback_iface_ipv6],
+                                            port=port,
+                                            timeout=1,
+                                            enable_external_loopback=True) as rx_socket:
+            tx_socket.sendto(test_string, (mcast_address_v6, port))
+            data = rx_socket.recv()
+            assert data == test_string
+
+
+def test_external_loopback_disabled_v4() -> None:
+    """
+    Check that packets sent over external interface are not received when `enable_external_loopback` is set to False.
+    """
+    with multicast_expert.McastTxSocket(socket.AF_INET,
+                                        mcast_ips=[mcast_address_v4],
+                                        enable_external_loopback=False) as tx_socket:
+        assert tx_socket.iface_ip is not None and tx_socket.iface_ip != multicast_expert.LOCALHOST_IPV4
+
+        with multicast_expert.McastRxSocket(socket.AF_INET,
+                                            mcast_ips=[mcast_address_v4],
+                                            iface_ips=[tx_socket.iface_ip],
+                                            port=port,
+                                            timeout=1,
+                                            enable_external_loopback=False) as rx_socket:
+            tx_socket.sendto(test_string, (mcast_address_v4, port))
+            rx_socket.settimeout(0.1)
+            data = rx_socket.recv()
+            assert data == None
+
+
+def test_external_loopback_disabled_v6(nonloopback_iface_ipv6: str) -> None:
+    """
+    Check that packets sent over external interface are not received when `enable_external_loopback` is set to False.
+    """
+    with multicast_expert.McastTxSocket(socket.AF_INET6,
+                                        mcast_ips=[mcast_address_v6],
+                                        iface_ip=nonloopback_iface_ipv6,
+                                        enable_external_loopback=False) as tx_socket:
+        with multicast_expert.McastRxSocket(socket.AF_INET6,
+                                            mcast_ips=[mcast_address_v6],
+                                            iface_ips=[nonloopback_iface_ipv6],
+                                            port=port,
+                                            timeout=1,
+                                            enable_external_loopback=False) as rx_socket:
+            rx_socket.settimeout(0.1)
+            tx_socket.sendto(test_string, (mcast_address_v6, port))
+            data = rx_socket.recv()
+            assert data == None

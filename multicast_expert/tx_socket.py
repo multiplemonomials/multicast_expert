@@ -16,7 +16,7 @@ class McastTxSocket:
     Class to wrap a socket that sends to one or more multicast groups.
     """
 
-    def __init__(self, addr_family: int, mcast_ips: List[str], iface_ip: Optional[str] = None, ttl: int = 1):
+    def __init__(self, addr_family: int, mcast_ips: List[str], iface_ip: Optional[str] = None, ttl: int = 1, enable_external_loopback: bool = False):
         """
         Create a socket which transmits UDP datagrams over multicast.  The socket must be opened
         (e.g. using a with statement) before it can be used.
@@ -30,6 +30,9 @@ class McastTxSocket:
         :param ttl: Time-to-live parameter to set on the packets sent by this socket, AKA hop limit for ipv6.
             This controls the number of routers that the packets may pass through until they are dropped.  The
             default value of 1 prevents the multicast packets from passing through any routers.
+        :param enable_external_loopback: Enable receiving multicast packets sent over external interfaces. If and only
+            if this option is set to True, McastRxSockets will be able to receive packets sent by McastTxSockets open on
+            the same address, port, and interface.
         """
 
         self.addr_family = addr_family
@@ -56,6 +59,8 @@ class McastTxSocket:
         for mcast_ip in self.mcast_ips:
             validate_mcast_ip(mcast_ip, self.addr_family)
 
+        self.enable_external_loopback = enable_external_loopback
+
     def __enter__(self) -> McastTxSocket:
         if self.is_opened:
             raise MulticastExpertError("Attempt to open an McastTxSocket that is already open!")
@@ -78,13 +83,13 @@ class McastTxSocket:
         else: # IPv6
             self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_HOPS, self.ttl)
 
-        # On Unix, we need to disable multicast loop here.  Otherwise, sent packets will get looped back to local
+        # On Unix, we need to disable multicast loop if we do not want sent packets to get looped back to local
         # sockets on the same interface.
         if not is_windows:
 
-            # On Mac, we do want to keep loopback enabled but only on the loopback interface.
-            # On Linux, always disable it.
-            enable_loopback = is_mac and (self.iface_ip == LOCALHOST_IPV4 or self.iface_ip == LOCALHOST_IPV6)
+            # Enable loopback if enable_external_loopback is set or if using a loopback interface on Mac.
+            # Otherwise, disable loopback.
+            enable_loopback = self.enable_external_loopback or (is_mac and (self.iface_ip == LOCALHOST_IPV4 or self.iface_ip == LOCALHOST_IPV6))
 
             if self.addr_family == socket.AF_INET:
                 self.socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, enable_loopback)
