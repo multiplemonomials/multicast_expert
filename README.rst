@@ -179,7 +179,7 @@ v1.4.0 - Dec 21, 2023
 *********************
 * multicast_expert now has Github Actions CI thanks to Victor Tang's contribution!  It is now automatically tested on Mac, Linux, and Windows.
 * Add ``enable_external_loopback`` option on tx and rx sockets, which can be used to turn on multicast loopback for non-loopback interfaces.  Note that this option has to be set on both the Tx and Rx sockets in order to work correctly on all platforms.
-* Fix bug which prevented opening IPv6 multicast Tx sockets on Linux in some situations
+* Fix bug which prevented opening IPv6 multicast Tx sockets on Linux in some situations.
 * Fix mypy type checker error on non-Windows platforms due to use of ctypes Windows functionality.
 
 v1.3.0 - Oct 20, 2023
