@@ -29,6 +29,7 @@ IPv4Or6Address = Union[Tuple[str, int], Tuple[str, int, int, int]]
 # maps indexed by socket.AF_INET6 instead of netifaces.AF_INET6.
 # https://github.com/SamuelYvon/netifaces-2/issues/24
 # I am assuming this will get fixed in its next release, 0.0.22.
+NETIFACES_AF_INET6_CONSTANT: int
 if is_windows and using_netifaces_2 and packaging.version.parse(importlib.metadata.version("netifaces2")) <= packaging.version.parse("0.0.21"):
     NETIFACES_AF_INET6_CONSTANT = socket.AF_INET6
 else:
@@ -78,7 +79,7 @@ def get_default_gateway_iface_ip_v6() -> Optional[str]:
     Get the IP address of the interface that connects to the default IPv6 gateway, if it
     can be determined.  If it cannot be determined, None is returned.
     """
-    return get_default_gateway_iface_ip(netifaces.AF_INET6)  # type: ignore[arg-type]
+    return get_default_gateway_iface_ip(socket.AF_INET6)
 
 
 def get_default_gateway_iface_ip_v4() -> Optional[str]:
@@ -86,14 +87,20 @@ def get_default_gateway_iface_ip_v4() -> Optional[str]:
     Get the IP address of the interface that connects to the default IPv4 gateway, if it
     can be determined.  If it cannot be determined, None is returned.
     """
-    return get_default_gateway_iface_ip(netifaces.AF_INET)  # type: ignore[arg-type]
+    return get_default_gateway_iface_ip(socket.AF_INET)
 
 
-def get_default_gateway_iface_ip(addr_family: netifaces.InterfaceType) -> Optional[str]:
+def get_default_gateway_iface_ip(addr_family: int) -> Optional[str]:
     """
     Get the IP address of the interface that connects to the default gateway of the given addr_family, if it
     can be determined.  If it cannot be determined, None is returned.
     """
+
+    # Convert from socket constant to netifaces constant
+    if addr_family == socket.AF_INET6:
+        netifaces_addr_family = NETIFACES_AF_INET6_CONSTANT
+    else:
+        netifaces_addr_family = netifaces.AF_INET
 
     if using_netifaces_2:
 
@@ -104,8 +111,8 @@ def get_default_gateway_iface_ip(addr_family: netifaces.InterfaceType) -> Option
             # Default gateway search not implemented on this platform
             return None
 
-        if addr_family in default_gateways:
-            default_gateway_iface = default_gateways[addr_family][1]  # element 1 is the iface name
+        if netifaces_addr_family in default_gateways:
+            default_gateway_iface = default_gateways[netifaces_addr_family][1]  # element 1 is the iface name
         else:
             return None
 
@@ -118,19 +125,19 @@ def get_default_gateway_iface_ip(addr_family: netifaces.InterfaceType) -> Option
 
         # If it can, it will identify one of those as the default gateway for traffic.
         # If not, return none.
-        if not "default" in gateways:
+        if not "default" in gateways:  # type: ignore[comparison-overlap]
             return None
-        if not addr_family in gateways["default"]:
+        if not netifaces_addr_family in gateways["default"]:  # type: ignore[comparison-overlap, index]
             return None
 
-        default_gateway = gateways["default"][addr_family]
+        default_gateway = gateways["default"][netifaces_addr_family]  # type: ignore[index]
         default_gateway_iface = default_gateway[1]  # element 1 is the iface name, per the docs
 
     # Now, use the interface name to get the IP address of that interface
     interface_addresses = netifaces.ifaddresses(default_gateway_iface)
-    if addr_family not in interface_addresses:
+    if netifaces_addr_family not in interface_addresses:
         return None
-    return interface_addresses[addr_family][0]["addr"]
+    return interface_addresses[netifaces_addr_family][0]["addr"]  # type: ignore[index]
 
 
 def validate_mcast_ip(mcast_ip: str, addr_family: int) -> None:

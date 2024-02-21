@@ -24,18 +24,15 @@ def iface_ip_to_name(iface_ip: str) -> str:
 
     # Go from IP to interface name using netifaces.  To do that, we have to iterate through
     # all of the machine's interfaces
-    iface_name: Optional[str] = None
     for interface in netifaces.interfaces():
-        addresses_at_each_level: Dict[int, List[Dict[str, str]]] = netifaces.ifaddresses(interface)
+        addresses_at_each_level: Dict[int, List[Dict[str, str]]] = netifaces.ifaddresses(interface)  # type: ignore[assignment]
         for address_family in [netifaces.AF_INET, NETIFACES_AF_INET6_CONSTANT]:
             if address_family in addresses_at_each_level:
                 for address in addresses_at_each_level[address_family]:
                     if address["addr"] == iface_ip:
-                        iface_name = interface
-                        return iface_name
+                        return interface
 
-    if iface_name is None:
-        raise KeyError("Could not find network address with local IP " + iface_ip)
+    raise KeyError("Could not find network address with local IP " + iface_ip)
 
 
 def iface_name_to_index(iface_name: str) -> int:
