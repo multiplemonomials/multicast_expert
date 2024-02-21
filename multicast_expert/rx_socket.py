@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import platform
-
-import netifaces
 import select
 import socket
 import struct
@@ -10,8 +8,11 @@ from typing import List, Tuple, Optional, Type, cast, Union
 from types import TracebackType
 import ctypes
 
+import netifaces
+
 from .utils import get_interface_ips, get_default_gateway_iface_ip, validate_mcast_ip, MulticastExpertError, is_mac, is_windows, IPv4Or6Address
 from . import os_multicast, LOCALHOST_IPV6, LOCALHOST_IPV4
+
 
 class McastRxSocket:
     """
@@ -128,9 +129,9 @@ class McastRxSocket:
                 else:
                     os_multicast.add_memberships(new_socket, self.mcast_ips, self.iface_infos[iface_ip], self.addr_family)
 
-                # On Windows, by default, sent packets are looped back to local sockets on the same interface, even for interfaces
-                # that are not loopback.Change this by disabling IP_MULTICAST_LOOP unless the loopback interface is used or
-                # if enable_external_loopback is set.
+                # On Windows, by default, sent packets are looped back to local sockets on the same interface, even
+                # for interfaces that are not loopback.Change this by disabling IP_MULTICAST_LOOP unless the loopback
+                # interface is used or if enable_external_loopback is set.
                 # Note: multicast_expert submitted a PR to clarify this in the Windows docs, and it was accepted!
                 loop_enabled = self.enable_external_loopback or iface_ip == LOCALHOST_IPV4 or iface_ip == LOCALHOST_IPV6
                 if self.addr_family == socket.AF_INET:

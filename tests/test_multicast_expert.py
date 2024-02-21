@@ -13,9 +13,11 @@ test_string = b'Test of Multicast!'
 test_string_alternate = b'Test of Multicast -- alternate address!'
 port = 12345
 
+
 @pytest.fixture()
 def nonloopback_iface_ipv6() -> str:
-    """Try to obtain a non-loopback IPv6 interface. If the default interface cannot be found, then use an arbitrary interface."""
+    """Try to obtain a non-loopback IPv6 interface.
+    If the default interface cannot be found, then use an arbitrary interface."""
     nonloopback_iface_ipv6 = multicast_expert.get_default_gateway_iface_ip_v6()
     if nonloopback_iface_ipv6 is None:
         for iface_ip in multicast_expert.get_interface_ips(include_ipv4=False, include_ipv6=True):
@@ -26,7 +28,8 @@ def nonloopback_iface_ipv6() -> str:
         if nonloopback_iface_ipv6 is None:
             raise RuntimeError("Couldn't find an ipv6 interface to use for the test!")
 
-        warnings.warn(f"netifaces was not able to determine the default ipv6 gateway on this machine. Using arbitrarily selected interface {nonloopback_iface_ipv6} instead.")
+        warnings.warn(f"netifaces was not able to determine the default ipv6 gateway on this machine. "
+                      f"Using arbitrarily selected interface {nonloopback_iface_ipv6} instead.")
     return nonloopback_iface_ipv6
 
 

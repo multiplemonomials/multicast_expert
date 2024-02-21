@@ -4,6 +4,8 @@ import socket
 from typing import List, Dict, Optional, Union, Tuple
 import ipaddress
 import platform
+import importlib.metadata
+import packaging.version
 
 import netifaces
 
@@ -21,6 +23,16 @@ using_netifaces_2 = hasattr(netifaces, "default_gateway")
 # For IPv4, address is a tuple of IP address (str) and port number.
 # For IPv6, address is a tuple of IP address (str), port number, flow info (int), and scope ID (int).
 IPv4Or6Address = Union[Tuple[str, int], Tuple[str, int, int, int]]
+
+
+# netifaces2 bug #24: on Windows, the AF_INET6 constant is incorrect, the ifaddresses() function is returning
+# maps indexed by socket.AF_INET6 instead of netifaces.AF_INET6.
+# https://github.com/SamuelYvon/netifaces-2/issues/24
+# I am assuming this will get fixed in its next release, 0.0.22.
+if is_windows and using_netifaces_2 and packaging.version.parse(importlib.metadata.version("netifaces2")) <= packaging.version.parse("0.0.21"):
+    NETIFACES_AF_INET6_CONSTANT = socket.AF_INET6
+else:
+    NETIFACES_AF_INET6_CONSTANT = netifaces.AF_INET6
 
 
 # Exception class for this library
@@ -52,8 +64,8 @@ def get_interface_ips(include_ipv4: bool = True, include_ipv6: bool = True) -> L
                 all_addresses.extend(addresses_at_each_level[netifaces.AF_INET])  # type: ignore[index]
 
         if include_ipv6:
-            if netifaces.AF_INET6 in addresses_at_each_level:
-                all_addresses.extend(addresses_at_each_level[netifaces.AF_INET6])  # type: ignore[index]
+            if NETIFACES_AF_INET6_CONSTANT in addresses_at_each_level:
+                all_addresses.extend(addresses_at_each_level[NETIFACES_AF_INET6_CONSTANT])  # type: ignore[index]
 
         for address_dict in all_addresses:
             ip_list.append(address_dict["addr"])
@@ -85,10 +97,15 @@ def get_default_gateway_iface_ip(addr_family: netifaces.InterfaceType) -> Option
 
     if using_netifaces_2:
 
-        # In netifaces 2, we get the
-        default_gateways = netifaces.default_gateway()
+        # In netifaces 2, we get the default_gateway() function to more easily determine the default gateway
+        try:
+            default_gateways = netifaces.default_gateway()
+        except NotImplementedError:
+            # Default gateway search not implemented on this platform
+            return None
+
         if addr_family in default_gateways:
-            default_gateway_iface = default_gateways[addr_family][1]
+            default_gateway_iface = default_gateways[addr_family][1]  # element 1 is the iface name
         else:
             return None
 
@@ -107,7 +124,7 @@ def get_default_gateway_iface_ip(addr_family: netifaces.InterfaceType) -> Option
             return None
 
         default_gateway = gateways["default"][addr_family]
-        default_gateway_iface = default_gateway[1] # element 1 is the iface name, per the docs
+        default_gateway_iface = default_gateway[1]  # element 1 is the iface name, per the docs
 
     # Now, use the interface name to get the IP address of that interface
     interface_addresses = netifaces.ifaddresses(default_gateway_iface)

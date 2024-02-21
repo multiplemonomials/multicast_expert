@@ -6,7 +6,7 @@ import struct
 import ctypes
 from typing import List, Optional, Dict
 from dataclasses import dataclass
-from .utils import is_mac, is_windows
+from .utils import is_mac, is_windows, NETIFACES_AF_INET6_CONSTANT
 
 import netifaces
 
@@ -27,16 +27,15 @@ def iface_ip_to_name(iface_ip: str) -> str:
     iface_name: Optional[str] = None
     for interface in netifaces.interfaces():
         addresses_at_each_level: Dict[int, List[Dict[str, str]]] = netifaces.ifaddresses(interface)
-        for address_family in [netifaces.AF_INET, netifaces.AF_INET6]:
+        for address_family in [netifaces.AF_INET, NETIFACES_AF_INET6_CONSTANT]:
             if address_family in addresses_at_each_level:
                 for address in addresses_at_each_level[address_family]:
                     if address["addr"] == iface_ip:
                         iface_name = interface
+                        return iface_name
 
     if iface_name is None:
         raise KeyError("Could not find network address with local IP " + iface_ip)
-
-    return iface_name
 
 
 def iface_name_to_index(iface_name: str) -> int:
