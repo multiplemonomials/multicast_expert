@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import socket
 from typing import List, Dict, Optional, Union, Tuple
 import ipaddress
@@ -7,6 +9,12 @@ import netifaces
 
 is_windows = platform.system() == "Windows"
 is_mac = platform.system() == "Darwin"
+
+
+# The netifaces2 rewritten version allows multicast_expert to work using a maintained backend (yay!).
+# However, it uses the same import name as the original netifaces (aww), so we have to get creative to
+# detect it.  It adds a new default_gateway() function which is much simpler to use.
+using_netifaces_2 = hasattr(netifaces, "default_gateway")
 
 
 # Type which can represent an IPv4 or an IPv6 address.
@@ -35,17 +43,17 @@ def get_interface_ips(include_ipv4: bool = True, include_ipv6: bool = True) -> L
     ip_list = []
     for interface in netifaces.interfaces():
 
-        all_addresses: List[Dict[str, str]] = []
+        all_addresses: List[Dict[netifaces.defs.AddressType, str]] = []
         addresses_at_each_level = netifaces.ifaddresses(interface)
 
         if include_ipv4:
             # Note: Check needed because some interfaces do not have an ipv4 or ipv6 address
             if netifaces.AF_INET in addresses_at_each_level:
-                all_addresses.extend(addresses_at_each_level[netifaces.AF_INET])
+                all_addresses.extend(addresses_at_each_level[netifaces.AF_INET])  # type: ignore[index]
 
         if include_ipv6:
             if netifaces.AF_INET6 in addresses_at_each_level:
-                all_addresses.extend(addresses_at_each_level[netifaces.AF_INET6])
+                all_addresses.extend(addresses_at_each_level[netifaces.AF_INET6])  # type: ignore[index]
 
         for address_dict in all_addresses:
             ip_list.append(address_dict["addr"])
@@ -58,7 +66,7 @@ def get_default_gateway_iface_ip_v6() -> Optional[str]:
     Get the IP address of the interface that connects to the default IPv6 gateway, if it
     can be determined.  If it cannot be determined, None is returned.
     """
-    return get_default_gateway_iface_ip(netifaces.AF_INET6)
+    return get_default_gateway_iface_ip(netifaces.AF_INET6)  # type: ignore[arg-type]
 
 
 def get_default_gateway_iface_ip_v4() -> Optional[str]:
@@ -66,33 +74,43 @@ def get_default_gateway_iface_ip_v4() -> Optional[str]:
     Get the IP address of the interface that connects to the default IPv4 gateway, if it
     can be determined.  If it cannot be determined, None is returned.
     """
-    return get_default_gateway_iface_ip(netifaces.AF_INET)
+    return get_default_gateway_iface_ip(netifaces.AF_INET)  # type: ignore[arg-type]
 
 
-def get_default_gateway_iface_ip(addr_family: int) -> Optional[str]:
+def get_default_gateway_iface_ip(addr_family: netifaces.InterfaceType) -> Optional[str]:
     """
     Get the IP address of the interface that connects to the default gateway of the given addr_family, if it
     can be determined.  If it cannot be determined, None is returned.
     """
 
-    # Enumerate all gateways using netifaces
-    try:
-        gateways = netifaces.gateways()
-    except OSError:
-        return None
+    if using_netifaces_2:
 
-    # If it can, it will identify one of those as the default gateway for traffic.
-    # If not, return none.
-    if not "default" in gateways:
-        return None
-    if not addr_family in gateways["default"]:
-        return None
+        # In netifaces 2, we get the
+        default_gateways = netifaces.default_gateway()
+        if addr_family in default_gateways:
+            default_gateway_iface = default_gateways[addr_family][1]
+        else:
+            return None
 
-    default_gateway = gateways["default"][addr_family]
-    default_gateway_iface = default_gateway[1] # element 1 is the iface name, per the docs
+    else:  # netifaces classic (TM)
+        # Enumerate all gateways using netifaces
+        try:
+            gateways = netifaces.gateways()
+        except OSError:
+            return None
+
+        # If it can, it will identify one of those as the default gateway for traffic.
+        # If not, return none.
+        if not "default" in gateways:
+            return None
+        if not addr_family in gateways["default"]:
+            return None
+
+        default_gateway = gateways["default"][addr_family]
+        default_gateway_iface = default_gateway[1] # element 1 is the iface name, per the docs
 
     # Now, use the interface name to get the IP address of that interface
-    interface_addresses: Dict[int, List[Dict[str, str]]] = netifaces.ifaddresses(default_gateway_iface)
+    interface_addresses = netifaces.ifaddresses(default_gateway_iface)
     if addr_family not in interface_addresses:
         return None
     return interface_addresses[addr_family][0]["addr"]
