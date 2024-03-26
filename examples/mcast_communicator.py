@@ -42,13 +42,13 @@ MULTICAST_ADDRESSES: Dict[int, List[str]] = {
 PORT=34348
 
 
-def listener_thread(machine_index: int, addr_family: int) -> None:
+def listener_thread(machine_index: int, addr_family: int, iface_ip: str) -> None:
 
     mcast_ips_to_listen = [
         MULTICAST_ADDRESSES[addr_family][0],
         MULTICAST_ADDRESSES[addr_family][(machine_index % 3) + 1]
     ]
-    with multicast_expert.McastRxSocket(addr_family, mcast_ips=mcast_ips_to_listen, port=PORT, blocking=True) as rx_socket:
+    with multicast_expert.McastRxSocket(addr_family, mcast_ips=mcast_ips_to_listen, port=PORT, blocking=True, iface_ips=[iface_ip]) as rx_socket:
         while True:
             recv_result = rx_socket.recvfrom()
             if recv_result is not None:
@@ -59,7 +59,7 @@ def listener_thread(machine_index: int, addr_family: int) -> None:
 
 # Read and check arguments
 if len(sys.argv) != 3:
-    print("Error: Usage: %s [IPv4 | IPv6] [1|2|3]" % (sys.argv[0]))
+    print("Error: Usage: %s <IPv4 | IPv6> <1|2|3> [Interface to bind to]" % (sys.argv[0]))
     exit(1)
 
 if sys.argv[1] == "IPv4":
@@ -75,13 +75,21 @@ if machine_number < 1 or machine_number > 3:
     print("Invalid machine number!")
     exit(1)
 
+if len(sys.argv) > 3:
+    iface_ip = sys.argv[3]
+else:
+    iface_ip = multicast_expert.get_default_gateway_iface_ip_v4()
+    if iface_ip is None:
+        print("Unable to determine default gateway.  Please specify interface in arguments.")
+        exit(1)
+
 # Start listener thread
-listener_thread_obj = threading.Thread(target=listener_thread, name="Multicast Listener Thread", args=(machine_number, addr_family), daemon=True)
+listener_thread_obj = threading.Thread(target=listener_thread, name="Multicast Listener Thread", args=(machine_number, addr_family, iface_ip), daemon=True)
 listener_thread_obj.start()
 
 # Start transmitting
 print("Communicator starting on interface %s.  Press Ctrl-C to exit" % (multicast_expert.get_default_gateway_iface_ip(addr_family)))
-with multicast_expert.McastTxSocket(addr_family=addr_family, mcast_ips=[MULTICAST_ADDRESSES[addr_family][0], MULTICAST_ADDRESSES[addr_family][machine_number]]) as tx_socket:
+with multicast_expert.McastTxSocket(addr_family=addr_family, mcast_ips=[MULTICAST_ADDRESSES[addr_family][0], MULTICAST_ADDRESSES[addr_family][machine_number]], iface_ip=iface_ip) as tx_socket:
     while True:
         time.sleep(1.0)
 
