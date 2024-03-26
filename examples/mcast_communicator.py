@@ -58,7 +58,7 @@ def listener_thread(machine_index: int, addr_family: int, iface_ip: str) -> None
 
 
 # Read and check arguments
-if len(sys.argv) != 3:
+if len(sys.argv) != 4:
     print("Error: Usage: %s <IPv4 | IPv6> <1|2|3> [Interface to bind to]" % (sys.argv[0]))
     exit(1)
 
