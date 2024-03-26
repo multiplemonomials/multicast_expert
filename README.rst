@@ -160,7 +160,7 @@ Q: What if, rather than using a Multicast Expert socket inside a single ``with``
 
         def init():
             self.mcast_socket = multicast_expert.McastTxSocket(...)
-            with contextlib.ExitStack as temp_exit_stack: # Creates a temporary ExitStack
+            with contextlib.ExitStack() as temp_exit_stack: # Creates a temporary ExitStack
                 temp_exit_stack.enter_context(self.mcast_socket) # Enter the mcast socket using the temporary stack
                 self.exit_stack = temp_exit_stack.pop_all() # Creates a new exit stack with ownership of mcast_socket "moved" into it
         
