@@ -141,7 +141,7 @@ Q: My multicasts aren't being received in Linux, even though I see them coming i
 
     RPF's "strict" mode (setting 1) is even worse.  It applies the same check, but on a per-interface level.  So, in order to receive packets from multicast address X, each individual interface must have a routing rule permitting it to send packets to X.  If this is too much of a pain to set up, you can turn RPF off using sysctl (`this seems like a decent guide <https://access.redhat.com/solutions/53031#:~:text=rp_filter%20parameter%20only%20has%20two,default%20is%201%20(loose).>`_).  Just remember to change it both for the "all" interface and for whichever interfaces you want to affect -- the kernel takes the stricter of the two values.
     
-    Another common issue is, if you have two NICs connected to each other on the same machine and want to send packets between them, you will need to change the [ipv4.accept_local](https://sysctl-explorer.net/net/ipv4/accept_local/) setting, e.g. ``sudo sh -c "echo 1 > /proc/sys/net/ipv4/conf/all/accept_local"`` (note that additional work is needed to make this persist across reboots)
+    Another common issue is, if you have two NICs connected to each other on the same machine and want to send packets between them, you will need to change the `ipv4.accept_local <https://sysctl-explorer.net/net/ipv4/accept_local/>`_ setting, e.g. ``sudo sh -c "echo 1 > /proc/sys/net/ipv4/conf/all/accept_local"`` (note that additional work is needed to make this persist across reboots)
 
     Last but not least, you may also want to check any firewalls (firewalld/ufw/iptables) and see if those are blocking multicast packets.
 
