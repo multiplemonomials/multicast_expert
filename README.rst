@@ -48,8 +48,8 @@ In conclusion, here's a table of how different boxes handle multicasts:
 ========================================= ============================================
 Box                                       What does it do with multicast packets?
 ========================================= ============================================
-Ethernet Switch (No IGMP Snooping)        Forwards to all hosts
-Ethernet Switch (IGMP Snooping Enabled)   Forwards only to hosts that have subscribed
+Ethernet Switch (No IGMP support)         Forwards to all hosts
+Ethernet Switch (IGMP enabled)            Forwards only to hosts that have subscribed
 Router                                    Depends on configuration.
 ========================================= ============================================
 
@@ -144,6 +144,18 @@ Q: My multicasts aren't being received in Linux, even though I see them coming i
     Another common issue is, if you have two NICs connected to each other on the same machine and want to send packets between them, you will need to change the `ipv4.accept_local <https://sysctl-explorer.net/net/ipv4/accept_local/>`_ setting, e.g. ``sudo sh -c "echo 1 > /proc/sys/net/ipv4/conf/all/accept_local"`` (note that additional work is needed to make this persist across reboots)
 
     Last but not least, you may also want to check any firewalls (firewalld/ufw/iptables) and see if those are blocking multicast packets.
+
+Q: What is IGMP Querier mode on a managed network switch?  Should I use it?
+    A: IGMP Querier mode is an alternate mode for IGMP to run in where, instead of just passively listening for IGMP join/leave messages, the network switch sends out IGMP Membership Query packets at a fixed interval. These packets cause each network device to respond with a list of the multicast groups it's subscribed to, which the switch (and any other switches along the network path) can use to update their routing tables. If a device doesn't include a given group in its subscription list, then its subscription to the group is removed!
+
+    Querier mode, as far as I can tell, exists to work around two limitations of IGMP.  First of all, IGMP only sends join messages twice when a computer first joins a group, and then never sends them again.  If both these packets get lost (or the SW gets confused about the state at any point), the subscription doesn't go through. Also, if a device is disconnected or powered off without warning, it can't send a leave group message, so the switch (and other switches along the network path) might keep sending multicasts to the device based on stale information.
+
+    Because of these limitations, querier mode is a good idea to enable if your setup supports it.  It makes IGMP a fair bit more robust by ensureing switches are frequently updated with the latest subscription information.
+
+Q: I am using a switch with IGMP enabled in querier mode and tried to join a multicast group, but I am not receiving anything and I don't see any multicast packets in Wireshark except for IGMP Membership Query packets, OR I see multicast packets for a few seconds but then they cut out.
+    A: This likely means that your PC isn't correctly responding to the IGMP queries. You can use Wireshark to check the contents of your PC's response and see what groups it thinks it's subscribed to.
+
+    Note that on Linux, IGMP membership queries from the switch can and will be blocked by Reverse Path Filtering (see above), causing multicast to completely fail to work. You will need to ensure that your switch uses an IGMP Querier Address that is routable from your machine, or just turn RPF off to end the madness.
 
 Q: If I have a socket that receives from multiple mcast addresses, say A and B, and I receive a packet, how do I tell whether the packet was sent to multicast address A or B?
     A: You can't, or at least I haven't found a way to do this from Python.  You'll need to create multiple sockets if you need this information.
