@@ -25,3 +25,8 @@ Before commiting changes:
 ```
 ./run_linters.sh
 ```
+
+### Uploading to PyPi
+Pypy uploads will be generated automatically for releases tagged with a "vA.B.C" tag (e.g v0.1.0).
+
+Make sure that the version in pyproject.toml matches the tag before tagging a release!

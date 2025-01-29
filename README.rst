@@ -148,9 +148,9 @@ Q: My multicasts aren't being received in Linux, even though I see them coming i
 Q: What is IGMP Querier mode on a managed network switch?  Should I use it?
     A: IGMP Querier mode is an alternate mode for IGMP to run in where, instead of just passively listening for IGMP join/leave messages, the network switch sends out IGMP Membership Query packets at a fixed interval. These packets cause each network device to respond with a list of the multicast groups it's subscribed to, which the switch (and any other switches along the network path) can use to update their routing tables. If a device doesn't include a given group in its subscription list, then its subscription to the group is removed!
 
-    Querier mode, as far as I can tell, exists to work around two limitations of IGMP.  First of all, IGMP only sends join messages twice when a computer first joins a group, and then never sends them again.  If both these packets get lost (or the SW gets confused about the state at any point), the subscription doesn't go through. Also, if a device is disconnected or powered off without warning, it can't send a leave group message, so the switch (and other switches along the network path) might keep sending multicasts to the device based on stale information.
+    Querier mode, as far as I can tell, exists to work around two limitations of IGMP.  First of all, IGMP only sends join messages twice when a computer first joins a group, and then never sends them again.  If both these packets get lost (or the SW gets confused about the state at any point), the subscription doesn't go through. Ditto if the network configuration changes (e.g. a switch is rebooted) after the joins were sent. Also, if a device is disconnected or powered off without warning, it can't send a leave group message, so the switch (and other switches along the network path) might keep sending multicasts to the device based on stale information.
 
-    Because of these limitations, querier mode is a good idea to enable if your setup supports it.  It makes IGMP a fair bit more robust by ensureing switches are frequently updated with the latest subscription information.
+    Because of these limitations, querier mode is a good idea to enable if your setup supports it.  It makes IGMP a fair bit more robust by ensuring switches are frequently updated with the latest subscription information.
 
 Q: I am using a switch with IGMP enabled in querier mode and tried to join a multicast group, but I am not receiving anything and I don't see any multicast packets in Wireshark except for IGMP Membership Query packets, OR I see multicast packets for a few seconds but then they cut out.
     A: This likely means that your PC isn't correctly responding to the IGMP queries. You can use Wireshark to check the contents of your PC's response and see what groups it thinks it's subscribed to.
@@ -185,54 +185,3 @@ With this setup, the socket will be opened when you call ``init()``, and will st
 
 Q: When I try to send a packet to the loopback address on Windows, I get "[WinError 10051] A socket operation was attempted to an unreachable network"!
     A: On Windows, to send multicasts through the loopback interface, you must open a listening socket before trying to send packets, or an error will be generated. So, make sure there's an application listing to the loopback interface on the correct port before you send your multicast packet.
-
-Changelog
-=========
-
-v1.4.0 - Dec 21, 2023
-*********************
-* multicast_expert now has Github Actions CI thanks to Victor Tang's contribution!  It is now automatically tested on Mac, Linux, and Windows.
-* Add ``enable_external_loopback`` option on tx and rx sockets, which can be used to turn on multicast loopback for non-loopback interfaces.  Note that this option has to be set on both the Tx and Rx sockets in order to work correctly on all platforms.
-* Fix bug which prevented opening IPv6 multicast Tx sockets on Linux in some situations.
-* Fix mypy type checker error on non-Windows platforms due to use of ctypes Windows functionality.
-
-v1.3.0 - Oct 20, 2023
-*********************
-* Replace ``blocking`` arg to McastRxSocket with ``timeout``, which allows you to set an integer timeout in the constructor. The old argument is still supported but is marked as legacy.
-* Fix the type annotation for McastRxSocket.settimeout() parameter.
-
-
-v1.2.2 - Jun 30, 2023
-*********************
-* Fix some mypy errors that were visible for users of the library.
-
-v1.2.1 - Jun 29, 2023
-*********************
-* Fix IPv6 McastRxSocket being broken on Linux when multiple interfaces were used (need to open an OS socket for each interface ip-mcast ip permutation)
-
-v1.2.0 - Jun 29, 2023
-*********************
-* An McastRxSocket can now listen on multiple interface IPs at once via passing a list of interface addresses to the new ``iface_ips`` parameter.  The old ``iface_ip`` parameter is retained for compatibility.
-* If no interface IPs are specified, McastRxSocket now listens on all non-loopback interfaces instead of just the default gateway.  This should provide more intuitive default behavior for applications where the interface for receiving isn't known.
-* Type annotations now applied to everything, library passes mypy in strict mode.
-* py.typed file now provided so that mypy can see type annotations provided by multicast_expert in your own projects.
-
-v1.1.2 - May 16, 2023
-*********************
-* Another hotfix for a typo in v1.1.0
-
-v1.1.1 - May 16, 2023
-*********************
-* Hotfix for a missing import in v1.1.0.  Forgot to run unit tests one last time before uploading to pypi 🤦‍♂️
-
-v1.1.0 - May 15, 2023
-*********************
-* Add mac compatibility (now that I finally have someone to help test who possesses a mac).  Previously only Windows and Linux were properly supported.
-
-v1.0.1 - Aug 13, 2022
-*********************
-* Documentation updates
-
-v1.0.0 - Aug 13, 2022
-*********************
-* Initial release!
