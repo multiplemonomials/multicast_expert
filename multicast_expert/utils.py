@@ -18,7 +18,7 @@ is_mac = platform.system() == "Darwin"
 # For IPv6, address is a tuple of IP address (str), port number, flow info (int), and scope ID (int).
 # NOTE: Since we still support python 3.9, we cannot use new style type annotations here. We have to use the
 # old ones which still work in 3.9
-IPv4Or6Address = Union[Tuple[str, int] | Tuple[str, int, int, int]]
+IPv4Or6Address = Union[Tuple[str, int], Tuple[str, int, int, int]]
 
 
 # Exception class for this library
