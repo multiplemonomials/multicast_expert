@@ -28,10 +28,11 @@ jobs:
       - name: Run Pytest
         run: poetry run pytest
 
+  # This job exists to run mypy on Windows and Mac, as sometimes it can turn up different errors in these cases.
   my-py:
     strategy:
       matrix:
-        os: ["ubuntu-latest", "windows-latest", "macos-latest"]
+        os: ["windows-latest", "macos-latest"]
     defaults:
       run:
         shell: bash
@@ -41,7 +42,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.8"
+          python-version: "3.9"
       - name: Install Poetry
         uses: Gr1N/setup-poetry@v9
       - name: Install project

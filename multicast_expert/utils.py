@@ -3,6 +3,7 @@ from __future__ import annotations
 import ipaddress
 import platform
 import socket
+from typing import TYPE_CHECKING
 
 import netifaces
 
@@ -12,10 +13,11 @@ is_windows = platform.system() == "Windows"
 is_mac = platform.system() == "Darwin"
 
 
-# Type which can represent an IPv4 or an IPv6 address.
-# For IPv4, address is a tuple of IP address (str) and port number.
-# For IPv6, address is a tuple of IP address (str), port number, flow info (int), and scope ID (int).
-IPv4Or6Address = tuple[str, int] | tuple[str, int, int, int]
+if TYPE_CHECKING:
+    # Type which can represent an IPv4 or an IPv6 address.
+    # For IPv4, address is a tuple of IP address (str) and port number.
+    # For IPv6, address is a tuple of IP address (str), port number, flow info (int), and scope ID (int).
+    IPv4Or6Address = tuple[str, int] | tuple[str, int, int, int]
 
 
 # Exception class for this library

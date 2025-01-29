@@ -15,12 +15,8 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-#    - name: Install Node (for pyright)
-#      uses: actions/setup-node@v4
-#      with:
-#        node-version: 22
-
     - name: Install Pyright
+      # Note: npm is already installed because it's included in the GH Actions imate
       run: |
         npm install -g pyright
 
