@@ -2,7 +2,7 @@
 name = "multicast_expert"
 # this is used by Ruff to disable "upgrade to feature x" inspections where x was added
 # after the given version
-requires-python = ">=3.8.1"
+requires-python = ">=3.9"
 version = "1.4.0"
 description = "A library to take the fiddly parts out of multicast networking!"
 authors = [
@@ -27,7 +27,6 @@ classifiers = [
 
   # Specify the Python versions you support here.
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -42,7 +41,7 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.dependencies]
-python = "^3.8.1" # Need Python 3.8 for socket.IPPROTO_IPV6
+python = "^3.9"
 netifaces = "0.*"
 
 [tool.poetry.group.dev.dependencies]

@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import socket
 from types import TracebackType
-from typing import Self
+from typing import TYPE_CHECKING
+
+# typing.Self not added till python 3.10
+if TYPE_CHECKING:
+    from typing import Self
 
 from multicast_expert import LOCALHOST_IPV4, LOCALHOST_IPV6, os_multicast
 from multicast_expert.utils import (
