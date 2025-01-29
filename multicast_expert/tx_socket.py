@@ -142,11 +142,15 @@ class McastTxSocket:
     def fileno(self) -> int:
         """
         Get the file descriptor for this socket.
+
+        :return: File descriptor for this socket.
         """
         return self.socket.fileno()
 
     def getsockname(self) -> tuple[str, int]:
         """
         Get the local IP and port that this socket bound itself to.
+
+        :return: Tuple of local IP and local port
         """
         return self.socket.getsockname()  # type: ignore[no-any-return]

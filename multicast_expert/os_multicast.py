@@ -1,20 +1,23 @@
 # Script containing the nitty-gritty OS level functions of multicast_expert.
 
+# docsig: disable
+
+from __future__ import annotations
+
 import ctypes
 import socket
 import struct
 import sys
 from dataclasses import dataclass
-from typing import Dict, List, Optional
 
 import netifaces
 
-from .utils import is_mac, is_windows
+from multicast_expert.utils import is_mac, is_windows
 
 # Import needed Win32 DLL functions
 if sys.platform == "win32":
     iphlpapi = ctypes.WinDLL("iphlpapi")
-    win32_GetAdapterIndex = iphlpapi.GetAdapterIndex
+    win32_GetAdapterIndex = iphlpapi.GetAdapterIndex  # noqa: N816
     win32_GetAdapterIndex.argtypes = [ctypes.c_wchar_p, ctypes.POINTER(ctypes.c_ulong)]
 
 
@@ -24,9 +27,9 @@ def iface_ip_to_name(iface_ip: str) -> str:
     """
     # Go from IP to interface name using netifaces.  To do that, we have to iterate through
     # all of the machine's interfaces
-    iface_name: Optional[str] = None
+    iface_name: str | None = None
     for interface in netifaces.interfaces():
-        addresses_at_each_level: Dict[int, List[Dict[str, str]]] = netifaces.ifaddresses(interface)
+        addresses_at_each_level: dict[int, list[dict[str, str]]] = netifaces.ifaddresses(interface)
         for address_family in [netifaces.AF_INET, netifaces.AF_INET6]:
             if address_family in addresses_at_each_level:
                 for address in addresses_at_each_level[address_family]:
@@ -87,7 +90,6 @@ class IfaceInfo:
 def get_iface_info(iface_ip: str) -> IfaceInfo:
     """
     Return an IfaceInfo object for a network interface from its IP address
-    :return:
     """
     iface_name = iface_ip_to_name(iface_ip)
     return IfaceInfo(iface_ip, iface_name, iface_name_to_index(iface_name))
@@ -119,10 +121,11 @@ def make_ipv6_mreq_struct(mcast_ip: str, iface_info: IfaceInfo) -> bytes:
 
 
 def set_multicast_if(
-    mcast_socket: socket.socket, mcast_ips: List[str], iface_info: IfaceInfo, addr_family: int
+    mcast_socket: socket.socket, mcast_ips: list[str], iface_info: IfaceInfo, addr_family: int
 ) -> None:
     """
     Set the IP_MULTICAST_IF / IPV6_MULTICAST_IF socket option to an interface on a given socket.
+
     Note that this option needs 4 different code paths to set it, on Windows IPv6 / Windows IPv4 / Unix IPv6 / Unix IPv4
     """
     if is_windows:
@@ -149,7 +152,7 @@ def set_multicast_if(
         mcast_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_IF, struct.pack("I", iface_info.iface_idx))
 
 
-def add_memberships(mcast_socket: socket.socket, mcast_ips: List[str], iface_info: IfaceInfo, addr_family: int) -> None:
+def add_memberships(mcast_socket: socket.socket, mcast_ips: list[str], iface_info: IfaceInfo, addr_family: int) -> None:
     """
     Add a non-source-specific membership for the given multicast IPs on the given socket.
     """
@@ -178,11 +181,12 @@ def add_memberships(mcast_socket: socket.socket, mcast_ips: List[str], iface_inf
 
 
 def add_source_specific_memberships(
-    mcast_socket: socket.socket, mcast_ips: List[str], source_ips: List[str], iface_info: IfaceInfo
+    mcast_socket: socket.socket, mcast_ips: list[str], source_ips: list[str], iface_info: IfaceInfo
 ) -> None:
     """
     Add a source-specific membership for the given multicast IPs on the given socket, with the given sources.
-    Currently only supports IPv6.
+
+    Currently only supports IPv4.
     """
     for mcast_ip in mcast_ips:
         for source_ip in source_ips:

@@ -100,14 +100,12 @@ class McastRxSocket:
         # Resolve the interfaces now.  This prevents having to do this relatively expensive call
         # multiple times later.
         self.iface_infos = {}
-        for iface_ip in self.iface_ips:
+        for ip in self.iface_ips:
             try:
-                self.iface_infos[iface_ip] = os_multicast.get_iface_info(iface_ip)
-            except KeyError:
-                raise MulticastExpertError(
-                    "Interface IP %s does not seem to correspond to a valid interface.  Valid interfaces: %s"
-                    % (iface_ip, ", ".join(get_interface_ips()))
-                )
+                self.iface_infos[ip] = os_multicast.get_iface_info(ip)
+            except KeyError as ex:
+                message = f"Interface IP {ip} does not seem to correspond to a valid interface.  Valid interfaces: {', '.join(get_interface_ips())}"
+                raise MulticastExpertError(message) from ex
 
         # Sanity check multicast addresses
         for mcast_ip in self.mcast_ips:
@@ -152,7 +150,7 @@ class McastRxSocket:
                 # that are not loopback.Change this by disabling IP_MULTICAST_LOOP unless the loopback interface is used or
                 # if enable_external_loopback is set.
                 # Note: multicast_expert submitted a PR to clarify this in the Windows docs, and it was accepted!
-                loop_enabled = self.enable_external_loopback or iface_ip == LOCALHOST_IPV4 or iface_ip == LOCALHOST_IPV6
+                loop_enabled = self.enable_external_loopback or iface_ip in (LOCALHOST_IPV4, LOCALHOST_IPV6)
                 if self.addr_family == socket.AF_INET:
                     new_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, loop_enabled)
                 else:
@@ -216,6 +214,9 @@ class McastRxSocket:
         The "bufsize" and "flags" arguments have the same meaning as the arguments to socket.recv(), see the
         manual for that function for details.
 
+        :param bufsize: Maximum amount of data to be received at once.
+        :param flags: Flags that will be passed to the OS.
+
         :return: Tuple of (bytes, address).  For IPv4, address is a tuple of IP address (str) and port number.
             For IPv6, address is a tuple of IP address (str), port number, flow info (int), and scope ID (int).
             If no packets were received (nonblocking mode or timeout), None is returned.
@@ -241,6 +242,9 @@ class McastRxSocket:
         The "bufsize" and "flags" arguments have the same meaning as the arguments to socket.recv(), see the
         manual for that function for details.
 
+        :param bufsize: Maximum amount of data to be received at once.
+        :param flags: Flags that will be passed to the OS.
+
         :return: Bytes received.
         """
         packet_and_addr = self.recvfrom(bufsize, flags)
@@ -254,15 +258,19 @@ class McastRxSocket:
         Get a list of the socket file descriptor(s) used by this socket.
 
         You can use this with the select module to implement blocking I/O on multiple different multicast sockets.
+
+        :return: socket file descriptor(s) used by this socket.
         """
         return [socket.fileno() for socket in self.sockets]
 
     def settimeout(self, timeout: float | None) -> None:
         """
-        Set the timeout on socket operations.  Behavior depends on the value passed for timeout:
+        Set the timeout on socket operations.
 
-        * Number > 0: Receiving packets will abort if more than timeout seconds elapse while waiting for a packet.
-        * 0: Socket will be put in nonblocking mode
-        * None: Socket will block forever (the default)
+        :param timeout: The timeout. Possible values:
+            - Number > 0: Receiving packets will abort if more than timeout seconds elapse while waiting for a packet.
+            - 0: Socket will be put in nonblocking mode
+            - None: Socket will block forever (the default)
+
         """
         self.timeout = timeout

@@ -6,6 +6,8 @@ import socket
 
 import netifaces
 
+# docsig: disable
+
 is_windows = platform.system() == "Windows"
 is_mac = platform.system() == "Darwin"
 
