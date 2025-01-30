@@ -1,6 +1,10 @@
 [project]
 name = "multicast_expert"
+
+# Note: I would like to set this to ">=3.9", but because docsig (+ maybe other dependencies) set this to
+# "~=3.9", so Poetry won't solve the versions since it cannot find a version of docsig that works for Python >=4
 requires-python = "~=3.9"
+
 version = "1.4.0"
 description = "A library to take the fiddly parts out of multicast networking!"
 authors = [
@@ -32,7 +36,8 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "netifaces>=0.11.0,<1.0"
+    "netifaces>=0.11.0",
+    "typing-extensions>=4.12.2"
 ]
 
 [project.urls]
@@ -43,16 +48,15 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "~=6.2"
-mypy = "~=1.8"
-ruff = '>=0.9,<1'
-docsig = ">=0.67.0,<1"
+pytest = ">=6.2"
+mypy = ">=1.8"
+ruff = '>=0.9'
+docsig = ">=0.67.0"
 
 [tool.ruff]
 line-length = 120
 show-fixes = true
 src = ['src',]
-target-version = 'py39'
 
 [tool.ruff.lint]
 select = [
@@ -147,9 +151,6 @@ max-complexity = 24
 ]
 'examples/*' = [
     'T201', # Allow print()
-]
-'multicast_expert/utils.py' = [
-    'UP035', 'UP006' # Allow old style type annotations
 ]
 
 [tool.ruff.lint.pylint]
