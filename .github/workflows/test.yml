@@ -7,7 +7,7 @@ jobs:
     strategy:
       matrix:
         os: ["ubuntu-latest", "windows-latest", "macos-latest"]
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     defaults:
       run:
         shell: bash
@@ -15,11 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install Poetry
-        uses: snok/install-poetry@v1
+        uses: Gr1N/setup-poetry@v9
       - name: Install project
         run: poetry install --no-interaction
       - name: Configure IP routes # See "Development Setup.md"
@@ -28,10 +28,11 @@ jobs:
       - name: Run Pytest
         run: poetry run pytest
 
+  # This job exists to run mypy on Windows and Mac, as sometimes it can turn up different errors in these cases.
   my-py:
     strategy:
       matrix:
-        os: ["ubuntu-latest", "windows-latest", "macos-latest"]
+        os: ["windows-latest", "macos-latest"]
     defaults:
       run:
         shell: bash
@@ -39,12 +40,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.8"
+          python-version: "3.9"
       - name: Install Poetry
-        uses: snok/install-poetry@v1
+        uses: Gr1N/setup-poetry@v9
       - name: Install project
         run: poetry install --no-interaction
       - name: Run Mypy
-        run: poetry run mypy multicast_expert
+        run: poetry run mypy -p multicast_expert

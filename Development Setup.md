@@ -7,7 +7,6 @@ multicast_expert uses Poetry to handle setting up for development and uploading 
 ### Setting Up for Local Dev
 ```
 python -m poetry install
-python -m poetry shell # This activates a virtual environment containing the dependencies
 ```
 
 ### Running Tests
@@ -21,7 +20,8 @@ sudo ip -6 route add table local ff11::/16 dev lo
 python -m pytest . # Checks actual code
 ```
 
-### Uploading to PyPi
+### Running Linting and Formatting
+Before commiting changes:
 ```
-python -m poetry publish -u <username> -p <password> --build
+./run_linters.sh
 ```

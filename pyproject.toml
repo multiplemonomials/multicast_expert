@@ -1,20 +1,167 @@
-[tool.poetry]
+[project]
 name = "multicast_expert"
+
+# Note: I would like to set this to ">=3.9", but because docsig (+ maybe other dependencies) set this to
+# "~=3.9", so Poetry won't solve the versions since it cannot find a version of docsig that works for Python >=4
+requires-python = "~=3.9"
+
 version = "1.4.0"
 description = "A library to take the fiddly parts out of multicast networking!"
-authors = ["Jamie Smith <jsmith@crackofdawn.onmicrosoft.com>"]
+authors = [
+    {name = "Jamie Smith", email = "jsmith@crackofdawn.onmicrosoft.com"}
+]
 license = "MIT"
 readme = "README.rst"
-repository = "https://github.com/multiplemonomials/multicast_expert"
 
-[tool.poetry.dependencies]
-python = "^3.8" # Need Python 3.8 for socket.IPPROTO_IPV6
-netifaces = "0.*"
+classifiers = [
+  # How mature is this project? Common values are
+  #   3 - Alpha
+  #   4 - Beta
+  #   5 - Production/Stable
+  "Development Status :: 5 - Production/Stable",
 
-[tool.poetry.dev-dependencies]
-pytest = "^6.2"
-mypy = "^1.4.1"
+  # Indicate who your project is intended for
+  "Intended Audience :: Developers",
+  "Topic :: System :: Networking",
+
+  # Pick your license as you wish (see also "license" above)
+  "License :: OSI Approved :: MIT License",
+
+  # Specify the Python versions you support here.
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "netifaces>=0.11.0",
+    "typing-extensions>=4.0.1"
+]
+
+[project.urls]
+Repository = "https://github.com/multiplemonomials/multicast_expert"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=6.2"
+mypy = ">=1.8"
+ruff = '>=0.9'
+docsig = ">=0.67.0"
+
+[tool.ruff]
+line-length = 120
+show-fixes = true
+src = ['src',]
+
+[tool.ruff.lint]
+select = [
+    'A',    # Builtins
+    'ANN',  # Annotations
+    'ARG',  # Unused arguments
+    'B',    # Bugbear
+    'BLE',  # Blind except
+    'C4',   # Comprehensions
+    'C90',  # mccabe
+    'COM',  # Commas
+    'D2',   # Docstring conventions
+    'DTZ',  # Datetimes
+    'EM',   # Error messages
+    'ERA',  # Commented-out code
+    'EXE',  # Executable
+    'F',    # Pyflakes
+    'FA',   # __future__ annotations
+    'FLY',  # F-strings
+    'FURB', # Refurb
+    'G',    # Logging format
+    'I',    # Isort
+    'ICN',  # Import conventions
+    'INP',  # Disallow PEP-420 (Implicit namespace packages)
+    'INT',  # gettext
+    'ISC',  # Implicit str concat
+    'LOG',  # Logging
+    'N',    # PEP-8 Naming
+    'NPY',  # Numpy
+    'PERF', # Unnecessary performance costs
+    'PGH',  # Pygrep hooks
+    'PIE',  # Unnecessary code
+    'PL',   # Pylint
+    'PT',   # Pytest
+    'PTH',  # Use Pathlib
+    'PYI',  # Stub files
+    'Q',    # Quotes
+    'RET',  # Return
+    'RUF',  # Ruff
+    'RSE',  # Raise
+    'S',    # Bandit
+    'SIM',  # Code simplification
+    'SLF',  # Private member access
+    'SLOT', # __slots__
+    'T10',  # Debugger
+    'T20',  # Print
+    'TCH',  # Type checking
+    'TID',  # Tidy imports
+    'TRY',  # Exception handling
+    'UP',   # Pyupgrade
+    'W',    # Warnings
+    'YTT',  # sys.version
+]
+ignore = [
+    'D203',    # One blank line before class docstring
+    'D212',    # Multi-line summary first line
+    'Q000',    # Single quotes found but double quotes preferred
+    'D200',    # One-line docstring should fit on one line
+    'S101',    # Assert statements
+    'RET505',  # Unnecessary `elif` after `return` statement
+    'RET506',  # Unnecessary `else` after `raise` statement
+    'TRY003',  # Inline exception messages - Redundant with EM101
+    'COM812',  # Missing trailing commas - incompatible with formatter
+    'ISC001',  # Single line implicit string concatenation - incompatible with formatter
+    'TRY301',  # Don't call raise within a try block -- can I help it if other libraries don't use exceptions??
+    'TRY300',  # Returns within try blocks
+    'PLR2004', # Magic value used in comparison
+    'SIM102',  # Allow multiple nested if statements.  Sometimes it's nice for readability
+    'TC003',   # Don't require TYPE_CHECKING checks in imports. Waaaay too annoying to manage.
+    'PERF203', # Allow try-except within loops. Sometimes this is needed!
+    'ERA001',  # Allow commented code. This lint gets a false positive on docsig ignore comments!
+]
+
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = 'double'
+multiline-quotes = 'double'
+
+[tool.ruff.lint.mccabe]
+max-complexity = 24
+
+[tool.ruff.lint.per-file-ignores]
+# https://beta.ruff.rs/docs/rules/
+'__init__.py' = ['F401','F403','F405',]
+'tests/*' = [
+    'ANN',
+    'ARG',
+    'D',
+    'INP001',
+    'S101',
+    'T201', # Allow print()
+    'EM101', # Allow raising exceptions with inline strings
+]
+'examples/*' = [
+    'T201', # Allow print()
+]
+
+[tool.ruff.lint.pylint]
+max-args = 15
+max-branches = 24
+max-returns = 10
+max-statements = 80
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = 'all'
+
+# Allow __init__ to not have a return type annotation
+[tool.ruff.lint.flake8-annotations]
+mypy-init-return = true

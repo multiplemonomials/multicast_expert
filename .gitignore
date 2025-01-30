@@ -3,8 +3,5 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Poetry lockfile
-poetry.lock
-
 # builds
 dist/*
