@@ -122,11 +122,18 @@ def test_v4_loopback() -> None:
     # On Linux, this test requires a route to be set up to enable transmission of multicasts on loopback:
     # sudo ip route add 239.2.2.0/24 dev lo
 
-    with multicast_expert.McastRxSocket(
-        socket.AF_INET, mcast_ips=[mcast_address_v4], port=port, iface_ip=multicast_expert.LOCALHOST_IPV4, timeout=1.0
-    ) as mcast_rx_sock, multicast_expert.McastTxSocket(
-        socket.AF_INET, mcast_ips=[mcast_address_v4], iface_ip=multicast_expert.LOCALHOST_IPV4
-    ) as mcast_tx_sock:
+    with (
+        multicast_expert.McastRxSocket(
+            socket.AF_INET,
+            mcast_ips=[mcast_address_v4],
+            port=port,
+            iface_ip=multicast_expert.LOCALHOST_IPV4,
+            timeout=1.0,
+        ) as mcast_rx_sock,
+        multicast_expert.McastTxSocket(
+            socket.AF_INET, mcast_ips=[mcast_address_v4], iface_ip=multicast_expert.LOCALHOST_IPV4
+        ) as mcast_tx_sock,
+    ):
         mcast_tx_sock.sendto(test_string, (mcast_address_v4, port))
 
         packet = mcast_rx_sock.recvfrom()
@@ -143,16 +150,19 @@ def test_v4_ssm_loopback() -> None:
     Note: With only one host we cannot actually test the source-specific features, but at least we can check
     that the socket options are set correctly and it receives regular multicasts OK.
     """
-    with multicast_expert.McastRxSocket(
-        socket.AF_INET,
-        mcast_ips=[mcast_address_v4],
-        port=port,
-        iface_ip=multicast_expert.LOCALHOST_IPV4,
-        source_ips=[multicast_expert.LOCALHOST_IPV4],
-        timeout=1.0,
-    ) as mcast_rx_sock, multicast_expert.McastTxSocket(
-        socket.AF_INET, mcast_ips=[mcast_address_v4], iface_ip=multicast_expert.LOCALHOST_IPV4
-    ) as mcast_tx_sock:
+    with (
+        multicast_expert.McastRxSocket(
+            socket.AF_INET,
+            mcast_ips=[mcast_address_v4],
+            port=port,
+            iface_ip=multicast_expert.LOCALHOST_IPV4,
+            source_ips=[multicast_expert.LOCALHOST_IPV4],
+            timeout=1.0,
+        ) as mcast_rx_sock,
+        multicast_expert.McastTxSocket(
+            socket.AF_INET, mcast_ips=[mcast_address_v4], iface_ip=multicast_expert.LOCALHOST_IPV4
+        ) as mcast_tx_sock,
+    ):
         mcast_tx_sock.sendto(test_string, (mcast_address_v4, port))
 
         packet = mcast_rx_sock.recvfrom()
@@ -170,11 +180,18 @@ def test_v6_loopback() -> None:
     # On Linux, this test requires a route to be set up to enable transmission of multicasts on loopback:
     # sudo ip -6 route add table local ff11::/16 dev lo
 
-    with multicast_expert.McastRxSocket(
-        socket.AF_INET6, mcast_ips=[mcast_address_v6], port=port, iface_ip=multicast_expert.LOCALHOST_IPV6, timeout=1.0
-    ) as mcast_rx_sock, multicast_expert.McastTxSocket(
-        socket.AF_INET6, mcast_ips=[mcast_address_v6], iface_ip=multicast_expert.LOCALHOST_IPV6
-    ) as mcast_tx_sock:
+    with (
+        multicast_expert.McastRxSocket(
+            socket.AF_INET6,
+            mcast_ips=[mcast_address_v6],
+            port=port,
+            iface_ip=multicast_expert.LOCALHOST_IPV6,
+            timeout=1.0,
+        ) as mcast_rx_sock,
+        multicast_expert.McastTxSocket(
+            socket.AF_INET6, mcast_ips=[mcast_address_v6], iface_ip=multicast_expert.LOCALHOST_IPV6
+        ) as mcast_tx_sock,
+    ):
         mcast_tx_sock.sendto(test_string, (mcast_address_v6, port))
 
         packet = mcast_rx_sock.recvfrom()
@@ -239,19 +256,28 @@ def test_v4_loopback_multiple() -> None:
     # On Linux, this test requires a route to be set up to enable transmission of multicasts on loopback:
     # sudo ip route add 239.2.2.0/24 dev lo
 
-    with multicast_expert.McastRxSocket(
-        socket.AF_INET, mcast_ips=[mcast_address_v4], port=port, iface_ip=multicast_expert.LOCALHOST_IPV4, timeout=1.0
-    ) as mcast_rx_sock, multicast_expert.McastRxSocket(
-        socket.AF_INET,
-        mcast_ips=[mcast_address_v4_alternate],
-        port=port,
-        iface_ip=multicast_expert.LOCALHOST_IPV4,
-        timeout=1.0,
-    ) as mcast_rx_sock_alt, multicast_expert.McastTxSocket(
-        socket.AF_INET, mcast_ips=[mcast_address_v4], iface_ip=multicast_expert.LOCALHOST_IPV4
-    ) as mcast_tx_sock, multicast_expert.McastTxSocket(
-        socket.AF_INET, mcast_ips=[mcast_address_v4_alternate], iface_ip=multicast_expert.LOCALHOST_IPV4
-    ) as mcast_tx_sock_alt:
+    with (
+        multicast_expert.McastRxSocket(
+            socket.AF_INET,
+            mcast_ips=[mcast_address_v4],
+            port=port,
+            iface_ip=multicast_expert.LOCALHOST_IPV4,
+            timeout=1.0,
+        ) as mcast_rx_sock,
+        multicast_expert.McastRxSocket(
+            socket.AF_INET,
+            mcast_ips=[mcast_address_v4_alternate],
+            port=port,
+            iface_ip=multicast_expert.LOCALHOST_IPV4,
+            timeout=1.0,
+        ) as mcast_rx_sock_alt,
+        multicast_expert.McastTxSocket(
+            socket.AF_INET, mcast_ips=[mcast_address_v4], iface_ip=multicast_expert.LOCALHOST_IPV4
+        ) as mcast_tx_sock,
+        multicast_expert.McastTxSocket(
+            socket.AF_INET, mcast_ips=[mcast_address_v4_alternate], iface_ip=multicast_expert.LOCALHOST_IPV4
+        ) as mcast_tx_sock_alt,
+    ):
         mcast_tx_sock.sendto(test_string, (mcast_address_v4, port))
         mcast_tx_sock_alt.sendto(test_string_alternate, (mcast_address_v4_alternate, port))
 
@@ -278,19 +304,28 @@ def test_v6_loopback_multiple() -> None:
     # On Linux, this test requires a route to be set up to enable transmission of multicasts on loopback:
     # sudo ip -6 route add table local ff11::/16 dev lo
 
-    with multicast_expert.McastRxSocket(
-        socket.AF_INET6, mcast_ips=[mcast_address_v6], port=port, iface_ip=multicast_expert.LOCALHOST_IPV6, timeout=1.0
-    ) as mcast_rx_sock, multicast_expert.McastRxSocket(
-        socket.AF_INET6,
-        mcast_ips=[mcast_address_v6_alternate],
-        port=port,
-        iface_ip=multicast_expert.LOCALHOST_IPV6,
-        timeout=1.0,
-    ) as mcast_rx_sock_alt, multicast_expert.McastTxSocket(
-        socket.AF_INET6, mcast_ips=[mcast_address_v6], iface_ip=multicast_expert.LOCALHOST_IPV6
-    ) as mcast_tx_sock, multicast_expert.McastTxSocket(
-        socket.AF_INET6, mcast_ips=[mcast_address_v6_alternate], iface_ip=multicast_expert.LOCALHOST_IPV6
-    ) as mcast_tx_sock_alt:
+    with (
+        multicast_expert.McastRxSocket(
+            socket.AF_INET6,
+            mcast_ips=[mcast_address_v6],
+            port=port,
+            iface_ip=multicast_expert.LOCALHOST_IPV6,
+            timeout=1.0,
+        ) as mcast_rx_sock,
+        multicast_expert.McastRxSocket(
+            socket.AF_INET6,
+            mcast_ips=[mcast_address_v6_alternate],
+            port=port,
+            iface_ip=multicast_expert.LOCALHOST_IPV6,
+            timeout=1.0,
+        ) as mcast_rx_sock_alt,
+        multicast_expert.McastTxSocket(
+            socket.AF_INET6, mcast_ips=[mcast_address_v6], iface_ip=multicast_expert.LOCALHOST_IPV6
+        ) as mcast_tx_sock,
+        multicast_expert.McastTxSocket(
+            socket.AF_INET6, mcast_ips=[mcast_address_v6_alternate], iface_ip=multicast_expert.LOCALHOST_IPV6
+        ) as mcast_tx_sock_alt,
+    ):
         mcast_tx_sock.sendto(test_string, (mcast_address_v6, port))
         mcast_tx_sock_alt.sendto(test_string_alternate, (mcast_address_v6_alternate, port))
 
@@ -336,16 +371,22 @@ def test_external_loopback_v6(nonloopback_iface_ipv6: str) -> None:
     """
     Check that packets sent over external interface can be received when `enable_external_loopback` is set.
     """
-    with multicast_expert.McastTxSocket(
-        socket.AF_INET6, mcast_ips=[mcast_address_v6], iface_ip=nonloopback_iface_ipv6, enable_external_loopback=True
-    ) as tx_socket, multicast_expert.McastRxSocket(
-        socket.AF_INET6,
-        mcast_ips=[mcast_address_v6],
-        iface_ips=[nonloopback_iface_ipv6],
-        port=port,
-        timeout=1,
-        enable_external_loopback=True,
-    ) as rx_socket:
+    with (
+        multicast_expert.McastTxSocket(
+            socket.AF_INET6,
+            mcast_ips=[mcast_address_v6],
+            iface_ip=nonloopback_iface_ipv6,
+            enable_external_loopback=True,
+        ) as tx_socket,
+        multicast_expert.McastRxSocket(
+            socket.AF_INET6,
+            mcast_ips=[mcast_address_v6],
+            iface_ips=[nonloopback_iface_ipv6],
+            port=port,
+            timeout=1,
+            enable_external_loopback=True,
+        ) as rx_socket,
+    ):
         tx_socket.sendto(test_string, (mcast_address_v6, port))
         data = rx_socket.recv()
         assert data == test_string
@@ -379,16 +420,22 @@ def test_external_loopback_disabled_v6(nonloopback_iface_ipv6: str) -> None:
     """
     Check that packets sent over external interface are not received when `enable_external_loopback` is set to False.
     """
-    with multicast_expert.McastTxSocket(
-        socket.AF_INET6, mcast_ips=[mcast_address_v6], iface_ip=nonloopback_iface_ipv6, enable_external_loopback=False
-    ) as tx_socket, multicast_expert.McastRxSocket(
-        socket.AF_INET6,
-        mcast_ips=[mcast_address_v6],
-        iface_ips=[nonloopback_iface_ipv6],
-        port=port,
-        timeout=1,
-        enable_external_loopback=False,
-    ) as rx_socket:
+    with (
+        multicast_expert.McastTxSocket(
+            socket.AF_INET6,
+            mcast_ips=[mcast_address_v6],
+            iface_ip=nonloopback_iface_ipv6,
+            enable_external_loopback=False,
+        ) as tx_socket,
+        multicast_expert.McastRxSocket(
+            socket.AF_INET6,
+            mcast_ips=[mcast_address_v6],
+            iface_ips=[nonloopback_iface_ipv6],
+            port=port,
+            timeout=1,
+            enable_external_loopback=False,
+        ) as rx_socket,
+    ):
         rx_socket.settimeout(0.1)
         tx_socket.sendto(test_string, (mcast_address_v6, port))
         data = rx_socket.recv()

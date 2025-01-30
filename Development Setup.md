@@ -6,7 +6,7 @@ multicast_expert uses Poetry to handle setting up for development and uploading 
 
 ### Setting Up for Local Dev
 ```
-python -m poetry install --with=linters
+python -m poetry install
 ```
 
 ### Running Tests

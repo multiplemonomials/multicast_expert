@@ -1,8 +1,6 @@
 [project]
 name = "multicast_expert"
-# this is used by Ruff to disable "upgrade to feature x" inspections where x was added
-# after the given version
-requires-python = ">=3.9"
+requires-python = "~=3.9"
 version = "1.4.0"
 description = "A library to take the fiddly parts out of multicast networking!"
 authors = [
@@ -31,6 +29,10 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "netifaces>=0.11.0,<1.0"
 ]
 
 [project.urls]
@@ -40,26 +42,17 @@ Repository = "https://github.com/multiplemonomials/multicast_expert"
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.poetry.dependencies]
-python = "^3.9"
-netifaces = "0.*"
-
 [tool.poetry.group.dev.dependencies]
-pytest = "^6.2"
-mypy = "^1.8.0"
-
-[tool.poetry.group.linters]
-optional = true
-
-[tool.poetry.group.linters.dependencies]
-ruff = '^0.9.3'
-docsig = "^0.67.0"
+pytest = "~=6.2"
+mypy = "~=1.8"
+ruff = '>=0.9,<1'
+docsig = ">=0.67.0,<1"
 
 [tool.ruff]
 line-length = 120
 show-fixes = true
 src = ['src',]
-target-version = 'py38'
+target-version = 'py39'
 
 [tool.ruff.lint]
 select = [
@@ -154,6 +147,9 @@ max-complexity = 24
 ]
 'examples/*' = [
     'T201', # Allow print()
+]
+'multicast_expert/utils.py' = [
+    'UP035', 'UP006' # Allow old style type annotations
 ]
 
 [tool.ruff.lint.pylint]
