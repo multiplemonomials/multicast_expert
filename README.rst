@@ -83,7 +83,7 @@ Now let's get into some actual code examples.  Now first, before we can create a
 
 (note that this function is a wrapper around the netifaces library, which provides quite a bit more functionality if you need it)
 
-But which of those is the interface we actually want to use?  Well, that depends on your specific nework setup, but to make an educated guess, we also have a function to get the interface your machine uses to contact the internet.  This is not always correct but will work for many network setups.
+But which of those is the interface we actually want to use?  Well, that depends on your specific network setup, but to make an educated guess, we also have a function to get the interface your machine uses to contact the internet.  This is not always correct but will work for many network setups.
 
 >>> multicast_expert.get_default_gateway_iface_ip_v4()
 '192.168.0.248'
