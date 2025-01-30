@@ -44,11 +44,18 @@ Lorem Ipsum dolor sit amet.
 
 - Updated localisation files
 
+## [1.5.0] - YYYY-MM-DD (Changes pending release)
+
+### Added
+
+
+### Changed
+
 -->
 
 _______________________________________________________________________________
 
-## [1.4.1] - 2025-01-29
+## [1.4.1] - 2025-01-30
 
 ### Added
 - Linting (via ruff, pyright, and docsig in addition to the preexisting mypy) and autoformatting (via ruff) has been added to the project
