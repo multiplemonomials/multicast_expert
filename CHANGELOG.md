@@ -55,6 +55,13 @@ Lorem Ipsum dolor sit amet.
 
 _______________________________________________________________________________
 
+## [1.4.2] - 2025-01-31
+
+### Fixed
+- Imported modules and variables in `multicast_expert/__init__.py` are now explicitly exported
+
+_______________________________________________________________________________
+
 ## [1.4.1] - 2025-01-30
 
 ### Added

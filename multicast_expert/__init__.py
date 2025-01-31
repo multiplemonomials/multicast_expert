@@ -30,18 +30,20 @@ LOCALHOST_IPV6 = "::1"
 
 # Utility functions
 # ------------------------------------------------------------------------------------------------------
+# Note: the "as" clause is needed to satisfy mypy's "no-implicit-reexport" check
+from multicast_expert.utils import MulticastExpertError as MulticastExpertError
+from multicast_expert.utils import get_default_gateway_iface_ip as get_default_gateway_iface_ip
+from multicast_expert.utils import get_default_gateway_iface_ip_v4 as get_default_gateway_iface_ip_v4
+from multicast_expert.utils import get_default_gateway_iface_ip_v6 as get_default_gateway_iface_ip_v6
+from multicast_expert.utils import get_interface_ips as get_interface_ips
+from multicast_expert.utils import validate_mcast_ip as validate_mcast_ip
+from multicast_expert.utils import IPv4Or6Address as IPv4Or6Address
 
+# See also: https://github.com/microsoft/pyright/blob/main/docs/typed-libraries.md#library-interface
 # Receive socket
 # ------------------------------------------------------------------------------------------------------
-from multicast_expert.rx_socket import McastRxSocket
+from multicast_expert.rx_socket import McastRxSocket as McastRxSocket
 
 # Transmit socket
 # ------------------------------------------------------------------------------------------------------
-from multicast_expert.tx_socket import McastTxSocket
-from multicast_expert.utils import (
-    MulticastExpertError,
-    get_default_gateway_iface_ip,
-    get_default_gateway_iface_ip_v4,
-    get_default_gateway_iface_ip_v6,
-    get_interface_ips,
-)
+from multicast_expert.tx_socket import McastTxSocket as McastTxSocket

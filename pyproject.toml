@@ -5,7 +5,7 @@ name = "multicast_expert"
 # "~=3.9", so Poetry won't solve the versions since it cannot find a version of docsig that works for Python >=4
 requires-python = "~=3.9"
 
-version = "1.4.1"
+version = "1.4.2"
 description = "A library to take the fiddly parts out of multicast networking!"
 authors = [
     {name = "Jamie Smith", email = "jsmith@crackofdawn.onmicrosoft.com"}
@@ -139,7 +139,12 @@ max-complexity = 24
 
 [tool.ruff.lint.per-file-ignores]
 # https://beta.ruff.rs/docs/rules/
-'__init__.py' = ['F401','F403','F405',]
+'__init__.py' = [
+    'F401',
+    'F403',
+    'F405',
+    'PLC0414', # Aliases are used to mark imports as public (see https://github.com/astral-sh/ruff/issues/6294)
+]
 'tests/*' = [
     'ANN',
     'ARG',
