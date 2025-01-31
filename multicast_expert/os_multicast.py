@@ -21,27 +21,6 @@ if sys.platform == "win32":
     win32_GetAdapterIndex.argtypes = [ctypes.c_wchar_p, ctypes.POINTER(ctypes.c_ulong)]
 
 
-def iface_ip_to_name(iface_ip: str) -> str:
-    """
-    Convert a network interface's interface IP into its interface name.
-    """
-    # Go from IP to interface name using netifaces.  To do that, we have to iterate through
-    # all of the machine's interfaces
-    iface_name: str | None = None
-    for interface in netifaces.interfaces():
-        addresses_at_each_level: dict[int, list[dict[str, str]]] = netifaces.ifaddresses(interface)
-        for address_family in [netifaces.AF_INET, netifaces.AF_INET6]:
-            if address_family in addresses_at_each_level:
-                for address in addresses_at_each_level[address_family]:
-                    if address["addr"] == iface_ip:
-                        iface_name = interface
-
-    if iface_name is None:
-        raise KeyError("Could not find network address with local IP " + iface_ip)
-
-    return iface_name
-
-
 def iface_name_to_index(iface_name: str) -> int:
     """
     Convert a network interface's name into its interface index.
@@ -65,26 +44,6 @@ def iface_name_to_index(iface_name: str) -> int:
         # Unix implementation is easy, we can just use the socket function
         return socket.if_nametoindex(iface_name)
 
-
-@dataclass
-class IfaceInfo:
-    """
-    Class to store data about an interface.
-
-    Parameters
-    ----------
-    iface_ip:
-        IP address of the interface as a string
-    iface_name:
-        Name of the interface as returned by netifaces.
-        On Windows this is a guid, on unix it's the name you'd get from e.g. `ip link`.
-    iface_idx:
-        Index of this interface with the OS.  This is an internal value used in some system calls.
-    """
-
-    iface_ip: str
-    iface_name: str
-    iface_idx: int
 
 
 def get_iface_info(iface_ip: str) -> IfaceInfo:
