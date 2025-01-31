@@ -28,20 +28,11 @@ if sys.version_info < (3, 12, 0):
 LOCALHOST_IPV4 = "127.0.0.1"
 LOCALHOST_IPV6 = "::1"
 
-# Utility functions
-# ------------------------------------------------------------------------------------------------------
 
-# Receive socket
-# ------------------------------------------------------------------------------------------------------
-from multicast_expert.rx_socket import McastRxSocket
-
-# Transmit socket
-# ------------------------------------------------------------------------------------------------------
-from multicast_expert.tx_socket import McastTxSocket
-from multicast_expert.utils import (
-    MulticastExpertError,
-    get_default_gateway_iface_ip,
-    get_default_gateway_iface_ip_v4,
-    get_default_gateway_iface_ip_v6,
-    get_interface_ips,
-)
+from multicast_expert.rx_socket import McastRxSocket as McastRxSocket
+from multicast_expert.tx_socket import McastTxSocket as McastTxSocket
+from multicast_expert.utils import MulticastExpertError as MulticastExpertError
+from multicast_expert.utils import get_default_gateway_iface_ip as get_default_gateway_iface_ip
+from multicast_expert.utils import get_default_gateway_iface_ip_v4 as get_default_gateway_iface_ip_v4
+from multicast_expert.utils import get_default_gateway_iface_ip_v6 as get_default_gateway_iface_ip_v6
+from multicast_expert.utils import get_interface_ips as get_interface_ips

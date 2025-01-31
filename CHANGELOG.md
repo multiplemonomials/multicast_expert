@@ -44,7 +44,7 @@ Lorem Ipsum dolor sit amet.
 
 - Updated localisation files
 
-## [1.5.0] - YYYY-MM-DD (Changes pending release)
+## [x.y.z] - YYYY-MM-DD (Changes pending release)
 
 ### Added
 
@@ -52,6 +52,13 @@ Lorem Ipsum dolor sit amet.
 ### Changed
 
 -->
+
+_______________________________________________________________________________
+
+## [1.4.2] - 2025-01-31
+
+### Fixed
+- Fix mypy and pylance "name not exported" error visible for users of the library
 
 _______________________________________________________________________________
 
