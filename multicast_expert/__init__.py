@@ -36,3 +36,5 @@ from multicast_expert.utils import get_default_gateway_iface_ip as get_default_g
 from multicast_expert.utils import get_default_gateway_iface_ip_v4 as get_default_gateway_iface_ip_v4
 from multicast_expert.utils import get_default_gateway_iface_ip_v6 as get_default_gateway_iface_ip_v6
 from multicast_expert.utils import get_interface_ips as get_interface_ips
+from multicast_expert.utils import IPv4Or6Address  as IPv4Or6Address
+from multicast_expert.utils import validate_mcast_ip as validate_mcast_ip
