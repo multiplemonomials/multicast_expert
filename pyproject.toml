@@ -5,7 +5,7 @@ name = "multicast_expert"
 # "~=3.9", so Poetry won't solve the versions since it cannot find a version of docsig that works for Python >=4
 requires-python = "~=3.9"
 
-version = "1.4.1"
+version = "1.4.2"
 description = "A library to take the fiddly parts out of multicast networking!"
 authors = [
     {name = "Jamie Smith", email = "jsmith@crackofdawn.onmicrosoft.com"}
@@ -49,6 +49,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=6.2"
+pytest-retry = ">=1.7.0"
 mypy = ">=1.8"
 ruff = '>=0.9'
 docsig = ">=0.67.0"
@@ -139,7 +140,12 @@ max-complexity = 24
 
 [tool.ruff.lint.per-file-ignores]
 # https://beta.ruff.rs/docs/rules/
-'__init__.py' = ['F401','F403','F405',]
+'__init__.py' = [
+    'F401',
+    'F403',
+    'F405',
+    'PLC0414' # Allow explicit reexport
+]
 'tests/*' = [
     'ANN',
     'ARG',

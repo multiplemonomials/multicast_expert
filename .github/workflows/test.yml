@@ -1,6 +1,6 @@
 name: test
 
-on: [push, pull_request]
+on: push
 
 jobs:
   test:
@@ -25,8 +25,11 @@ jobs:
       - name: Configure IP routes # See "Development Setup.md"
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: sudo ip -6 route add table local ff11::/16 dev lo
+
+      # Note: Currently using pytest with retries due to intermittent (~10% of the time) failure when
+      # running unit tests on macos runners due to "exec format error" when setting socket options (???).
       - name: Run Pytest
-        run: poetry run pytest
+        run: poetry run pytest --retries 3
 
   # This job exists to run mypy on Windows and Mac, as sometimes it can turn up different errors in these cases.
   my-py:

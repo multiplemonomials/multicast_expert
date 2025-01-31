@@ -2,10 +2,7 @@
 
 name: Lint and Format
 
-on:
-  push:
-    branches:
-      - '**'
+on: push
 
 jobs:
   format-and-lint:
