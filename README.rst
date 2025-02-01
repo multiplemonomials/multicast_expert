@@ -78,15 +78,16 @@ Using Multicast Expert
 Now let's get into some actual code examples.  Now first, before we can create any sockets, we need to find the interface address we want to use (see above).  Luckily, Multicast Expert comes with a convenient function to list all available network interfaces:
 
 >>> import multicast_expert
->>> multicast_expert.get_interface_ips(include_ipv4=True, include_ipv6=False)
-['192.168.0.248', '192.168.153.1', '127.0.0.1']
+>>> multicast_expert.scan_interfaces()
+IfaceInfo(machine_name='{E61AD7AD-0125-4162-9967-98BE8A9CB330}', index=20, ip4_addrs=[], ip4_networks=[], ip6_addrs=[IPv6Address('fe80::1234:5678:%20')], ip6_networks=[IPv6Network('fe80::/64')])
+IfaceInfo(machine_name='{195D3CB7-6D21-4C5A-8514-C4F01494FDC0}', index=37, ip4_addrs=[IPv4Address('192.168.1.5')], ip4_networks=[IPv4Network('192.168.1.0/24')], ip6_addrs=[IPv6Address('fe80::1111:2222%37')], ip6_networks=[IPv6Network('fe80::/64')])
 
 (note that this function is a wrapper around the netifaces library, which provides quite a bit more functionality if you need it)
 
 But which of those is the interface we actually want to use?  Well, that depends on your specific network setup, but to make an educated guess, we also have a function to get the interface your machine uses to contact the internet.  This is not always correct but will work for many network setups.
 
->>> multicast_expert.get_default_gateway_iface_ip_v4()
-'192.168.0.248'
+>>> multicast_expert.get_default_gateway_iface(socket.AF_INET).ip4_addrs
+IPv4Address('192.168.1.5')
 
 Transmitting Multicasts
 =======================
@@ -96,22 +97,24 @@ To send some data to a multicast, use the McastTxSocket class.  This wraps a soc
 The following block shows how to create a Tx socket and send some data:
 
 >>> import socket
->>> with multicast_expert.McastTxSocket(socket.AF_INET, mcast_ips=['239.1.2.3'], iface_ip='192.168.0.248') as mcast_tx_sock:
+>>> with multicast_expert.McastTxSocket(socket.AF_INET, mcast_ips=['239.1.2.3'], iface='192.168.0.248') as mcast_tx_sock:
 ...     mcast_tx_sock.sendto(b'Hello World', ('239.1.2.3', 12345))
 
 Note: when you construct the socket, you have to pass in all of the multicast IPs that you will want to use the socket to send to.  These must be known in advance in order to configure socket options correctly.
 
-Note 2: If you omitted the iface_ip= argument, the get_default_gateway_iface_ip_v4() function would have been called to guess the iface ip.  So, we could have omitted this argument for the same result.
+Note 2: If you omitted the iface= argument, the get_default_gateway_iface() function would have been called to guess the iface ip.  So, we could have omitted this argument for the same result. However, you should pass this argument in most real usage, or at least make it configurable by the user. For the interface, you can pass the interface name, any of the interface's IP addresses, or an IfaceInfo dataclass received from scan_interfaces().
 
 Receiving Multicasts
 ====================
 
 To receive from one or more multicast addresses, use the McastRxSocket class.  For example:
 
->>> with multicast_expert.McastRxSocket(socket.AF_INET, mcast_ips=['239.1.2.3'], port=12345, iface_ip='192.168.0.248') as mcast_rx_sock:
+>>> with multicast_expert.McastRxSocket(socket.AF_INET, mcast_ips=['239.1.2.3'], port=12345) as mcast_rx_sock:
 ...     bytes, src_address = mcast_rx_sock.recvfrom()
 
 The above code will listen on the 239.1.2.3 multicast address, and will block until a packet is received.  To change the blocking behavior, use the settimeout() function.
+
+For receiving multicasts, you often don't need to pass an interface name, as the default is to listen on all possible interfaces of the machine. However, you can pass one or more specific interfaces to listen on if you like, for performance or functionality reasons.
 
 Full Example
 ============

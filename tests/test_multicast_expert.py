@@ -1,6 +1,7 @@
 import platform
 import socket
 import warnings
+from ipaddress import IPv4Address, IPv6Address
 
 import multicast_expert
 import pytest
@@ -35,16 +36,25 @@ def nonloopback_iface_ipv6() -> str:
     return nonloopback_iface_ipv6
 
 
-def test_get_ifaces() -> None:
+def test_get_iface_ips() -> None:
+    """
+    Simple test, just prints the interface IPs available on the current machine
+    :return:
+    """
+    print("\nIPv4 Interface IPs: -----------------")
+    print("\n".join(multicast_expert.get_interface_ips(include_ipv4=True, include_ipv6=False)))
+
+    print("\nIPv6 Interface IPs: -----------------")
+    print("\n".join(multicast_expert.get_interface_ips(include_ipv4=False, include_ipv6=True)))
+
+
+def test_scan_ifaces() -> None:
     """
     Simple test, just prints the interfaces available on the current machine
     :return:
     """
-    print("\nIPv4 Interfaces: -----------------")
-    print("\n".join(multicast_expert.get_interface_ips(include_ipv4=True, include_ipv6=False)))
-
-    print("\nIPv6 Interfaces: -----------------")
-    print("\n".join(multicast_expert.get_interface_ips(include_ipv4=False, include_ipv6=True)))
+    print("\nInterfaces: -----------------")
+    print("\n".join(str(iface_info) for iface_info in multicast_expert.scan_interfaces()))
 
 
 def test_get_default_gateway() -> None:
@@ -144,6 +154,35 @@ def test_v4_loopback() -> None:
         assert packet[1] == (multicast_expert.LOCALHOST_IPV4, mcast_tx_sock.getsockname()[1])
 
 
+def test_v4_loopback_with_ipaddrs() -> None:
+    """
+    Same as above test, but uses IPv4Address objects.
+    """
+
+    with (
+        multicast_expert.McastRxSocket(
+            socket.AF_INET,
+            mcast_ips=[IPv4Address(mcast_address_v4)],
+            port=port,
+            iface=IPv4Address(multicast_expert.LOCALHOST_IPV4),
+            timeout=1.0,
+        ) as mcast_rx_sock,
+        multicast_expert.McastTxSocket(
+            socket.AF_INET,
+            mcast_ips=[IPv4Address(mcast_address_v4)],
+            iface_ip=IPv4Address(multicast_expert.LOCALHOST_IPV4),
+        ) as mcast_tx_sock,
+    ):
+        mcast_tx_sock.sendto(test_string, (mcast_address_v4, port))
+
+        packet = mcast_rx_sock.recvfrom()
+
+        print("\nRx: " + repr(packet))
+        assert packet is not None
+        assert packet[0] == test_string
+        assert packet[1] == (multicast_expert.LOCALHOST_IPV4, mcast_tx_sock.getsockname()[1])
+
+
 def test_v4_ssm_loopback() -> None:
     """
     Check that a packet can be sent to the loopback address and received using IPv4 source-specific multicast.
@@ -190,6 +229,35 @@ def test_v6_loopback() -> None:
         ) as mcast_rx_sock,
         multicast_expert.McastTxSocket(
             socket.AF_INET6, mcast_ips=[mcast_address_v6], iface_ip=multicast_expert.LOCALHOST_IPV6
+        ) as mcast_tx_sock,
+    ):
+        mcast_tx_sock.sendto(test_string, (mcast_address_v6, port))
+
+        packet = mcast_rx_sock.recvfrom()
+
+        print("\nRx: " + repr(packet))
+        assert packet is not None
+        assert packet[0] == test_string
+        assert packet[1][0:2] == (multicast_expert.LOCALHOST_IPV6, mcast_tx_sock.getsockname()[1])
+
+
+def test_v6_loopback_with_ipaddrs() -> None:
+    """
+    Same as above test, but uses IPv6Address objects
+    """
+
+    with (
+        multicast_expert.McastRxSocket(
+            socket.AF_INET6,
+            mcast_ips=[IPv6Address(mcast_address_v6)],
+            port=port,
+            iface=IPv6Address(multicast_expert.LOCALHOST_IPV6),
+            timeout=1.0,
+        ) as mcast_rx_sock,
+        multicast_expert.McastTxSocket(
+            socket.AF_INET6,
+            mcast_ips=[IPv6Address(mcast_address_v6)],
+            iface_ip=IPv6Address(multicast_expert.LOCALHOST_IPV6),
         ) as mcast_tx_sock,
     ):
         mcast_tx_sock.sendto(test_string, (mcast_address_v6, port))
@@ -351,13 +419,12 @@ def test_external_loopback_v4() -> None:
     with multicast_expert.McastTxSocket(
         socket.AF_INET, mcast_ips=[mcast_address_v4], enable_external_loopback=True
     ) as tx_socket:
-        assert tx_socket.iface_ip is not None
-        assert tx_socket.iface_ip != multicast_expert.LOCALHOST_IPV4
+        assert not tx_socket.net_interface.is_localhost()
 
         with multicast_expert.McastRxSocket(
             socket.AF_INET,
             mcast_ips=[mcast_address_v4],
-            iface_ips=[tx_socket.iface_ip],
+            iface=tx_socket.net_interface,
             port=port,
             timeout=1,
             enable_external_loopback=True,
@@ -387,6 +454,7 @@ def test_external_loopback_v6(nonloopback_iface_ipv6: str) -> None:
             enable_external_loopback=True,
         ) as rx_socket,
     ):
+        assert not tx_socket.net_interface.is_localhost()
         tx_socket.sendto(test_string, (mcast_address_v6, port))
         data = rx_socket.recv()
         assert data == test_string
@@ -399,13 +467,12 @@ def test_external_loopback_disabled_v4() -> None:
     with multicast_expert.McastTxSocket(
         socket.AF_INET, mcast_ips=[mcast_address_v4], enable_external_loopback=False
     ) as tx_socket:
-        assert tx_socket.iface_ip is not None
-        assert tx_socket.iface_ip != multicast_expert.LOCALHOST_IPV4
+        assert not tx_socket.net_interface.is_localhost()
 
         with multicast_expert.McastRxSocket(
             socket.AF_INET,
             mcast_ips=[mcast_address_v4],
-            iface_ips=[tx_socket.iface_ip],
+            iface=tx_socket.net_interface,
             port=port,
             timeout=1,
             enable_external_loopback=False,
@@ -436,7 +503,11 @@ def test_external_loopback_disabled_v6(nonloopback_iface_ipv6: str) -> None:
             enable_external_loopback=False,
         ) as rx_socket,
     ):
+        assert not tx_socket.net_interface.is_localhost()
         rx_socket.settimeout(0.1)
         tx_socket.sendto(test_string, (mcast_address_v6, port))
         data = rx_socket.recv()
         assert data == None
+
+
+# TODO add tests for finding interface by name and by IP address
