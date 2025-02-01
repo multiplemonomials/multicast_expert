@@ -212,9 +212,9 @@ class McastRxSocket:
                     if self.addr_family == socket.AF_INET6:
                         # Note: for Unix IPv6, need to specify the scope ID in the bind address in order for link-local mcast addresses to work.
                         # Also, for IPv6, len(ifaces_this_socket) is always 1.
-                        new_socket.bind((mcast_ip, self.port, 0, ifaces_this_socket[0].index))
+                        new_socket.bind((str(mcast_ip), self.port, 0, ifaces_this_socket[0].index))
                     else:
-                        new_socket.bind((mcast_ip, self.port))
+                        new_socket.bind((str(mcast_ip), self.port))
 
                     for iface_info in ifaces_this_socket:
                         if self.is_source_specific:
