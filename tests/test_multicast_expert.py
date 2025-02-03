@@ -23,7 +23,7 @@ def nonloopback_iface_ipv6() -> multicast_expert.IfaceInfo:
     nonloopback_iface_ipv6 = multicast_expert.get_default_gateway_iface(netifaces.AF_INET6)
     if nonloopback_iface_ipv6 is None:
         for iface in multicast_expert.scan_interfaces():
-            if not iface.is_localhost():
+            if not iface.is_localhost() and len(iface.ip6_addrs) > 0:
                 nonloopback_iface_ipv6 = iface
                 break
 

@@ -55,7 +55,6 @@ class IfaceInfo:
         """
         :return: Whether this interface is the loopback/localhost interface based on its IP address
         """
-
         # Note: on Mac, the localhost interface appears to have two IPv6 IPs, "::1" and "fe80::1%lo0".
         # But this still works because we just need ::1 to be one of its IPs.
 
