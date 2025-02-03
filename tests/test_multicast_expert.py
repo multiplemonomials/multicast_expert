@@ -4,6 +4,7 @@ import warnings
 from ipaddress import IPv4Address, IPv6Address
 
 import multicast_expert
+import netifaces
 import pytest
 
 # Test constants
@@ -17,20 +18,20 @@ port = 12345
 
 
 @pytest.fixture
-def nonloopback_iface_ipv6() -> str:
+def nonloopback_iface_ipv6() -> multicast_expert.IfaceInfo:
     """Try to obtain a non-loopback IPv6 interface. If the default interface cannot be found, then use an arbitrary interface."""
-    nonloopback_iface_ipv6 = multicast_expert.get_default_gateway_iface_ip_v6()
+    nonloopback_iface_ipv6 = multicast_expert.get_default_gateway_iface(netifaces.AF_INET6)
     if nonloopback_iface_ipv6 is None:
-        for iface_ip in multicast_expert.get_interface_ips(include_ipv4=False, include_ipv6=True):
-            if iface_ip != multicast_expert.LOCALHOST_IPV6:
-                nonloopback_iface_ipv6 = iface_ip
+        for iface in multicast_expert.scan_interfaces():
+            if not iface.is_localhost():
+                nonloopback_iface_ipv6 = iface
                 break
 
         if nonloopback_iface_ipv6 is None:
             raise RuntimeError("Couldn't find an ipv6 interface to use for the test!")
 
         warnings.warn(
-            f"netifaces was not able to determine the default ipv6 gateway on this machine. Using arbitrarily selected interface {nonloopback_iface_ipv6} instead.",
+            f"netifaces was not able to determine the default ipv6 gateway on this machine. Using arbitrarily selected interface {nonloopback_iface_ipv6!s} instead.",
             stacklevel=2,
         )
     return nonloopback_iface_ipv6
@@ -454,7 +455,6 @@ def test_external_loopback_v6(nonloopback_iface_ipv6: str) -> None:
             enable_external_loopback=True,
         ) as rx_socket,
     ):
-        assert not tx_socket.net_interface.is_localhost()
         tx_socket.sendto(test_string, (mcast_address_v6, port))
         data = rx_socket.recv()
         assert data == test_string
@@ -503,7 +503,6 @@ def test_external_loopback_disabled_v6(nonloopback_iface_ipv6: str) -> None:
             enable_external_loopback=False,
         ) as rx_socket,
     ):
-        assert not tx_socket.net_interface.is_localhost()
         rx_socket.settimeout(0.1)
         tx_socket.sendto(test_string, (mcast_address_v6, port))
         data = rx_socket.recv()

@@ -55,6 +55,10 @@ class IfaceInfo:
         """
         :return: Whether this interface is the loopback/localhost interface based on its IP address
         """
+
+        # Note: on Mac, the localhost interface appears to have two IPv6 IPs, "::1" and "fe80::1%lo0".
+        # But this still works because we just need ::1 to be one of its IPs.
+
         return IPv6Interface(LOCALHOST_IPV6) in self.ip6_addrs or IPv4Interface(LOCALHOST_IPV4) in self.ip4_addrs
 
     def ip_addrs(self, family: int) -> list[IPv4Interface] | list[IPv6Interface]:
@@ -251,7 +255,7 @@ def get_default_gateway_iface(addr_family: int, *, ifaces: list[IfaceInfo] | Non
     """
     Get the info of the interface that connects to the default gateway of the given addr_family.
 
-    :param addr_family: Address family to use (INET or INET6).
+    :param addr_family: Address family to use (netifaces.AF_INET or netifaces.AF_INET6).
     :param ifaces: List of interfaces to search. If not provided, interfaces will be scanned.
     :return: IfaceInfo for the default gateway interface, or None if it cannot be determined.
     """
@@ -285,7 +289,7 @@ def get_default_gateway_iface_ip(addr_family: int, *, ifaces: list[IfaceInfo] | 
     """
     Get the IP address of the interface that connects to the default gateway of the given addr_family.
 
-    :param addr_family: Address family to use (INET or INET6).
+    :param addr_family: Address family to use (netifaces.AF_INET or netifaces.AF_INET6).
     :param ifaces: List of interfaces to search
 
     :return: IP address as a string, or None if it cannot be determined.
