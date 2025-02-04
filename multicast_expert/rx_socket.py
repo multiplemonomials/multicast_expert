@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
 from multicast_expert import os_multicast
-from multicast_expert.interfaces import IfaceInfo, IfaceSpecifier, find_iface, scan_interfaces
+from multicast_expert.interfaces import IfaceInfo, IfaceSpecifier, find_interfaces, scan_interfaces
 from multicast_expert.utils import (
     IPv4Or6Address,
     MulticastAddress,
@@ -50,9 +50,10 @@ class McastRxSocket:
         the machine that have addresses in the given family (IPv4 or IPv6). If you wish to select a specific
         interface or interfaces, pass them using the ``iface`` or ``ifaces`` arguments.
 
-        ``multicast_expert.scan_interfaces()`` may be used to obtain a list of interfaces on the machine.
-        Passing in an IfaceInfo from this function will make opening the socket more performant as there will
-        be no need to scan interface info from the machine.
+        ``multicast_expert.scan_interfaces()`` may be used to obtain a list of interfaces on the machine,
+        and ``multicast_expert.find_interfaces()`` may be used to find interfaces matching a given specifier.
+        Passing in an IfaceInfo obtained from one of those functions to this function will make opening multiple
+        sockets more performant as there will be no need to scan interface info from the machine again.
 
         :param addr_family: Sets IPv4 or IPv6 operation.  Either socket.AF_INET or socket.AF_INET6.
         :param mcast_ips: List of all possible multicast IPs that this socket can receive from.
@@ -140,7 +141,7 @@ class McastRxSocket:
         # Resolve the interfaces now.
         self._iface_infos = []
         for iface_specifier in iface_specifiers:
-            self._iface_infos.append(find_iface(iface_specifier, ifaces=scanned_ifaces))
+            self._iface_infos.extend(find_interfaces(iface_specifier, ifaces=scanned_ifaces))
 
         # Sanity check multicast addresses
         for mcast_ip in self.mcast_ips:

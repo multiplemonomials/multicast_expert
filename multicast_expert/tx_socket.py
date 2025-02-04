@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
 from multicast_expert import os_multicast
-from multicast_expert.interfaces import IfaceInfo, IfaceSpecifier, find_iface, get_default_gateway_iface_ip
+from multicast_expert.interfaces import IfaceInfo, IfaceSpecifier, find_interfaces, get_default_gateway_iface_ip
 from multicast_expert.utils import (
     IPv4Or6Address,
     MulticastAddress,
@@ -41,13 +41,18 @@ class McastTxSocket:
 
         The socket must be opened (e.g. using a with statement) before it can be used.
 
-        It is recommended to manually specify the interface to open the socket on. ``multicast_expert.scan_interfaces()``
-        may be used to obtain a list of interfaces on the machine. If no interface is passed, multicast_expert will
+        It is recommended to manually specify the interface to open the socket on. If no interface is passed, multicast_expert will
         attempt to guess an interface from your default gateway (aka the interface your PC uses to access the internet).
         Be careful, this default may not be desired in many cases.  See the docs for details.
 
-        Passing in an IfaceInfo from scan_interfaces() will make opening the socket more performant as there will
-        be no need to scan interface info from the machine.
+        ``multicast_expert.scan_interfaces()`` may be used to obtain a list of interfaces on the machine,
+        and ``multicast_expert.find_interfaces()`` may be used to find interfaces matching a given specifier.
+        Passing in an IfaceInfo obtained from one of those functions to this function will make opening multiple
+        sockets more performant as there will be no need to scan interface info from the machine again.
+
+        .. note::
+            If two interfaces on this machine have the same IP address, passing an IP address for the interface
+            argument will result in an exception, because this situation is ambiguous.
 
         :param addr_family: Sets IPv4 or IPv6 operation.  Either socket.AF_INET or socket.AF_INET6.
         :param mcast_ips: List of all possible multicast IPs that this socket can send to.
@@ -80,7 +85,11 @@ class McastTxSocket:
                 message = "iface not specified but unable to determine the default gateway on this machine"
                 raise MulticastExpertError(message)
 
-        self._iface_info = find_iface(iface)
+        found_interfaces = find_interfaces(iface)
+        if len(found_interfaces) > 1:
+            message = f"Interface specifier {iface!s} matches multiple interfaces ({found_interfaces[0].machine_name} and {found_interfaces[1].machine_name})! To disambiguate in this situation, you need to pass an IfaceInfo object returned by scan_interfaces() or find_interfaces() instead of the interface address."
+            raise MulticastExpertError(message)
+        self._iface_info = found_interfaces[0]
 
         # Sanity check multicast addresses
         for mcast_ip in self.mcast_ips:

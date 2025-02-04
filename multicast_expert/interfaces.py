@@ -3,6 +3,7 @@ from __future__ import annotations
 import ipaddress
 import socket
 import warnings
+from collections.abc import Sequence
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv4Interface, IPv6Address, IPv6Interface
 from typing import Union
@@ -76,6 +77,17 @@ class IfaceInfo:
         raise KeyError(message)
 
 
+IfaceSpecifier = Union[str, IPv4Address, IPv6Address, IfaceInfo]
+""" Type for something that can specify an interface in multicast expert.
+
+May be:
+   - An IPv4 address assigned to the interface, as a string or IPv4Address
+   - An IPv6 address assigned to the interface, as a string or IPv6Address
+   - An interface machine readable name
+   - An IfaceInfo object
+"""
+
+
 def scan_interfaces() -> list[IfaceInfo]:
     """
     Scan the IP interfaces on the machine and return a list containing info for each interface.
@@ -86,7 +98,7 @@ def scan_interfaces() -> list[IfaceInfo]:
     .. note::
         If an interface is currently down, it will appear in the list, but it is undefined whether
         it will show any IP addresses or not. This is a limitation of the underlying netifaces library,
-        and we hope to clarify this eventually.
+        and we hope to clarify this behavior eventually.
 
     :return: IfaceInfo objects scanned from the current machine.
     """
@@ -124,32 +136,22 @@ def scan_interfaces() -> list[IfaceInfo]:
     return result
 
 
-IfaceSpecifier = Union[str, IPv4Address, IPv6Address, IfaceInfo]
-""" Type for something that can specify an interface in multicast expert.
-
-May be:
-   - An IPv4 address assigned to the interface, as a string or IPv4Address (only if no other interface also has this IP)
-   - An IPv6 address assigned to the interface, as a string or IPv6Address (only if no other interface also has this IP)
-   - An interface machine readable name
-   - An IfaceInfo object
-"""
-
-
-def find_iface(specifier: IfaceSpecifier, *, ifaces: list[IfaceInfo] | None = None) -> IfaceInfo:
+def find_interfaces(specifier: IfaceSpecifier, *, ifaces: Sequence[IfaceInfo] | None = None) -> list[IfaceInfo]:
     """
-    Find an IfaceInfo based on an interface specifier.
+    Find one or more IfaceInfos based on an interface specifier.
 
-    If no interfaces or multiple interfaces match the specifier, a MulticastExpertError is raised.
+    If no interfaces match the specifier, a MulticastExpertError is raised.
 
     :param specifier: Address as a string or an object
     :param ifaces: If set, and ``specifier`` is not an IfaceInfo, these interfaces will be searched using the specifier.
         If not set, then the current set of interfaces will be scanned from the machine.
 
-    :return: Found interface
+    :return: Found interface(s). Note that multiple interfaces can only be returned if the specifier
+        is an IP address.
     """
     # Easy case, we already have the interface
     if isinstance(specifier, IfaceInfo):
-        return specifier
+        return [specifier]
 
     # Now we need to actually scan the interfaces
     if ifaces is None:
@@ -161,7 +163,7 @@ def find_iface(specifier: IfaceSpecifier, *, ifaces: list[IfaceInfo] | None = No
         for iface in ifaces:
             if iface.machine_name == specifier:
                 # Found a match!
-                return iface
+                return [iface]
 
     if isinstance(specifier, str):
         try:
@@ -174,23 +176,20 @@ def find_iface(specifier: IfaceSpecifier, *, ifaces: list[IfaceInfo] | None = No
 
     is_ipv6 = isinstance(ip_addr, IPv6Address)
 
-    result = None
+    result = []
     for iface in ifaces:
         # Annoyingly IPv[4/6]Network does not compare as equal to IPv[4/6]Address, so we have to convert
         addrs_to_check: set[IPv4Address] | set[IPv6Address]
         if is_ipv6:
-            # go through string to work around https://github.com/python/cpython/issues/88178
+            # go through string to work around https://github.com/python/cpython/issues/129538
             addrs_to_check = {IPv6Address(ip_interface_to_ip_string(addr)) for addr in iface.ip6_addrs}
         else:
             addrs_to_check = {addr.ip for addr in iface.ip4_addrs}
 
         if ip_addr in addrs_to_check:
-            if result is not None:
-                message = f"Interface IP {ip_addr!s} matches multiple interfaces ({result.machine_name} and {iface.machine_name})! To dis-ambiguate in this situation, you need to pass an IfaceInfo object returned by scan_interfaces() instead of the interface address."
-                raise MulticastExpertError(message)
-            result = iface
+            result.append(iface)
 
-    if result is None:
+    if len(result) == 0:
         message = f"No matches found for interface IP address {ip_addr!s}"
         raise MulticastExpertError(message)
 
@@ -207,6 +206,9 @@ def get_interface_ips(include_ipv4: bool = True, include_ipv6: bool = True) -> l
 
     :param include_ipv4: If true, IPv4 addresses will be included in the results
     :param include_ipv6: If true, IPv6 addresses will be included in the results
+
+    .. note::
+        If two interfaces on this machine have the same IP address, this function will warn and return only one of the interfaces.
 
     :return: List of the interface IP of every interface on your machine, as a string.
     """
@@ -279,7 +281,8 @@ def get_default_gateway_iface(addr_family: int, *, ifaces: list[IfaceInfo] | Non
         ifaces = scan_interfaces()
 
     try:
-        return find_iface(default_gateway_iface, ifaces=ifaces)
+        # Note: guaranteed to return only 1 element because we are passing the iface name
+        return find_interfaces(default_gateway_iface, ifaces=ifaces)[0]
     except MulticastExpertError:
         return None
 
