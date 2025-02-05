@@ -68,7 +68,7 @@ class McastTxSocket:
         """
         self.addr_family = addr_family
         self.mcast_ips = [ipaddress.ip_address(mcast_ip) for mcast_ip in mcast_ips]
-        self._mcast_ips_set = set(self.mcast_ips)  # Used for checking IPs in send()
+        self.mcast_ips_set = {str(ip) for ip in self.mcast_ips}  # Used for checking IPs in send()
         self.ttl = ttl
         self.is_opened = False
 
@@ -167,7 +167,7 @@ class McastTxSocket:
         :param tx_bytes: Bytes to send
         :param address: Tuple of the destination multicast address and the destination port
         """
-        if ipaddress.ip_address(address[0]) not in self._mcast_ips_set:
+        if address[0] not in self.mcast_ips_set:
             message = f"The given destination address ({address[0]}) was not one of the addresses given for this McastTxSocket to transmit to!"
             raise MulticastExpertError(message)
 
