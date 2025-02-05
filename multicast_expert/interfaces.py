@@ -38,14 +38,14 @@ class IfaceInfo:
     index: int
     """ Unique integer index of this interface. """
 
-    ip4_addrs: list[IPv4Interface]
+    ip4_addrs: Sequence[IPv4Interface]
     """
     IPv4 addresses assigned to this interface.
 
     Most interfaces only have one IPv4 address, but some can have multiple.
     """
 
-    ip6_addrs: list[IPv6Interface]
+    ip6_addrs: Sequence[IPv6Interface]
     """
     IPv6 addresses assigned to this interface.
 
@@ -61,11 +61,11 @@ class IfaceInfo:
 
         return IPv6Interface(LOCALHOST_IPV6) in self.ip6_addrs or IPv4Interface(LOCALHOST_IPV4) in self.ip4_addrs
 
-    def ip_addrs(self, family: int) -> list[IPv4Interface] | list[IPv6Interface]:
+    def ip_addrs(self, family: int) -> Sequence[IPv4Interface] | Sequence[IPv6Interface]:
         """
         Get the IP addresses of this interface on a given address family.
 
-        :param family: Address family
+        :param family: Address family (socket.AF_INET or socket.AF_INET6)
 
         :return: IP addresses of the given addr family
         """
@@ -158,7 +158,7 @@ def find_interfaces(specifier: IfaceSpecifier, *, ifaces: Sequence[IfaceInfo] | 
         ifaces = scan_interfaces()
 
     # Try to match the specifier to any known interface name.
-    # (please $diety do not let anyone name an interface with an IP address)
+    # (please ${DEITY} do not let anyone name an interface with an IP address)
     if isinstance(specifier, str):
         for iface in ifaces:
             if iface.machine_name == specifier:
@@ -224,7 +224,9 @@ def get_interface_ips(include_ipv4: bool = True, include_ipv6: bool = True) -> l
         for addr_str in this_iface_addresses:
             if addr_str in ip_set:
                 warnings.warn(
-                    f"Interface {iface.machine_name} has IP {addr_str} which is also used by another interface. Passing this interface IP to multicast_expert will result in an error. We recommend using multicast_expert.scan_interfaces() instead to handle this situation cleanly.",
+                    f"Interface {iface.machine_name} has IP {addr_str} which is also used by another interface. "
+                    f"Passing this interface IP to multicast_expert will result in an error. We recommend using "
+                    f"multicast_expert.scan_interfaces() instead to handle this situation cleanly.",
                     stacklevel=2,
                 )
             ip_set.add(addr_str)

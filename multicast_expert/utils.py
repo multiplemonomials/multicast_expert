@@ -39,11 +39,11 @@ def validate_mcast_ip(mcast_ip: MulticastAddress, addr_family: int) -> None:
         message = f"mcast_ip {mcast_ip} is not a multicast address!"
         raise MulticastExpertError(message)
 
-    if ip_as_obj is ipaddress.IPv4Address and addr_family == socket.AF_INET6:
+    if isinstance(ip_as_obj, ipaddress.IPv4Address) and addr_family == socket.AF_INET6:
         message = f"mcast_ip {mcast_ip} is IPv4 but this is an AF_INET6 socket!"
         raise MulticastExpertError(message)
 
-    if ip_as_obj is ipaddress.IPv6Address and addr_family == socket.AF_INET:
+    if isinstance(ip_as_obj, ipaddress.IPv6Address) and addr_family == socket.AF_INET:
         message = f"mcast_ip {mcast_ip} is IPv6 but this is an AF_INET socket!"
         raise MulticastExpertError(message)
 

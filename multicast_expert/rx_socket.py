@@ -80,13 +80,9 @@ class McastRxSocket:
         self.addr_family = addr_family
 
         # Convert all addresses from strings to IP addresses
-        self.mcast_ips: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = [
-            ipaddress.ip_address(ip) for ip in mcast_ips
-        ]
+        self.mcast_ips = [ipaddress.ip_address(ip) for ip in mcast_ips]
         if source_ips is not None:
-            self.source_ips: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = [
-                ipaddress.ip_address(ip) for ip in source_ips
-            ]
+            self.source_ips = [ipaddress.ip_address(ip) for ip in source_ips]
 
         self.port = port
         self.is_opened = False
@@ -139,7 +135,7 @@ class McastRxSocket:
                 raise MulticastExpertError(message)
 
         # Resolve the interfaces now.
-        self._iface_infos = []
+        self._iface_infos: list[IfaceInfo] = []
         for iface_specifier in iface_specifiers:
             self._iface_infos.extend(find_interfaces(iface_specifier, ifaces=scanned_ifaces))
 

@@ -68,7 +68,7 @@ class McastTxSocket:
         """
         self.addr_family = addr_family
         self.mcast_ips = [ipaddress.ip_address(mcast_ip) for mcast_ip in mcast_ips]
-        self.mcast_ips_set = set(self.mcast_ips)  # Used for checking IPs in send()
+        self._mcast_ips_set = set(self.mcast_ips)  # Used for checking IPs in send()
         self.ttl = ttl
         self.is_opened = False
 
@@ -87,7 +87,12 @@ class McastTxSocket:
 
         found_interfaces = find_interfaces(iface)
         if len(found_interfaces) > 1:
-            message = f"Interface specifier {iface!s} matches multiple interfaces ({found_interfaces[0].machine_name} and {found_interfaces[1].machine_name})! To disambiguate in this situation, you need to pass an IfaceInfo object returned by scan_interfaces() or find_interfaces() instead of the interface address."
+            message = (
+                f"Interface specifier {iface!s} matches multiple interfaces ({found_interfaces[0].machine_name} "
+                f"and {found_interfaces[1].machine_name})! To disambiguate in this situation, you need to pass "
+                f"an IfaceInfo object returned by scan_interfaces() or find_interfaces() instead of the "
+                f"interface address."
+            )
             raise MulticastExpertError(message)
         self._iface_info = found_interfaces[0]
 
@@ -162,7 +167,7 @@ class McastTxSocket:
         :param tx_bytes: Bytes to send
         :param address: Tuple of the destination multicast address and the destination port
         """
-        if ipaddress.ip_address(address[0]) not in self.mcast_ips_set:
+        if ipaddress.ip_address(address[0]) not in self._mcast_ips_set:
             message = f"The given destination address ({address[0]}) was not one of the addresses given for this McastTxSocket to transmit to!"
             raise MulticastExpertError(message)
 
@@ -185,6 +190,6 @@ class McastTxSocket:
         return self.socket.getsockname()  # type: ignore[no-any-return]
 
     @property
-    def net_interface(self) -> IfaceInfo:
+    def network_interface(self) -> IfaceInfo:
         """Get the interface used by this socket."""
         return self._iface_info

@@ -31,6 +31,7 @@ LOCALHOST_IPV6 = "::1"
 
 from multicast_expert.interfaces import IfaceInfo as IfaceInfo
 from multicast_expert.interfaces import IfaceSpecifier as IfaceSpecifier
+from multicast_expert.interfaces import find_interfaces as find_interfaces
 from multicast_expert.interfaces import get_default_gateway_iface as get_default_gateway_iface
 from multicast_expert.interfaces import get_default_gateway_iface_ip as get_default_gateway_iface_ip
 from multicast_expert.interfaces import get_default_gateway_iface_ip_v4 as get_default_gateway_iface_ip_v4

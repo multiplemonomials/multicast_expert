@@ -6,6 +6,7 @@ from ipaddress import IPv4Address, IPv6Address
 import multicast_expert
 import netifaces
 import pytest
+from multicast_expert import IfaceInfo
 
 # Test constants
 mcast_address_v4 = "239.2.2.2"
@@ -76,18 +77,18 @@ def test_tx_v4_can_be_used() -> None:
         mcast_sock.sendto(b"Hello IPv4", (mcast_address_v4, port))
 
 
-def test_tx_v6_can_be_used(nonloopback_iface_ipv6: str) -> None:
+def test_tx_v6_can_be_used(nonloopback_iface_ipv6: IfaceInfo) -> None:
     """
     Sanity check that a Tx IPv6 socket can be opened and used using the default gateway
     :return:
     """
     with multicast_expert.McastTxSocket(
-        socket.AF_INET6, mcast_ips=[mcast_address_v6], iface_ip=nonloopback_iface_ipv6
+        socket.AF_INET6, mcast_ips=[mcast_address_v6], iface=nonloopback_iface_ipv6
     ) as mcast_sock:
         mcast_sock.sendto(b"Hello IPv6", (mcast_address_v6, port))
 
 
-def test_non_mcast_raises_error(nonloopback_iface_ipv6: str) -> None:
+def test_non_mcast_raises_error(nonloopback_iface_ipv6: IfaceInfo) -> None:
     """
     Check that trying to use a non-multicast address raises an error
     """
@@ -95,7 +96,7 @@ def test_non_mcast_raises_error(nonloopback_iface_ipv6: str) -> None:
         multicast_expert.McastTxSocket(socket.AF_INET, mcast_ips=["239.2.2.2", "192.168.5.1"])
 
     with pytest.raises(multicast_expert.MulticastExpertError, match="not a multicast address"):
-        multicast_expert.McastTxSocket(socket.AF_INET6, mcast_ips=["abcd::"], iface_ip=nonloopback_iface_ipv6)
+        multicast_expert.McastTxSocket(socket.AF_INET6, mcast_ips=["abcd::"], iface=nonloopback_iface_ipv6)
 
 
 def test_rx_v4_can_be_opened() -> None:
@@ -116,12 +117,12 @@ def test_rx_v4_ssm_can_be_opened() -> None:
         pass
 
 
-def test_rx_v6_can_be_opened(nonloopback_iface_ipv6: str) -> None:
+def test_rx_v6_can_be_opened(nonloopback_iface_ipv6: IfaceInfo) -> None:
     """
     Sanity check that a Rx IPv6 socket can be opened using the default gateway
     """
     with multicast_expert.McastRxSocket(
-        socket.AF_INET6, mcast_ips=[mcast_address_v6], port=port, iface_ips=[nonloopback_iface_ipv6]
+        socket.AF_INET6, mcast_ips=[mcast_address_v6], port=port, ifaces=[nonloopback_iface_ipv6]
     ):
         pass
 
@@ -420,12 +421,12 @@ def test_external_loopback_v4() -> None:
     with multicast_expert.McastTxSocket(
         socket.AF_INET, mcast_ips=[mcast_address_v4], enable_external_loopback=True
     ) as tx_socket:
-        assert not tx_socket.net_interface.is_localhost()
+        assert not tx_socket.network_interface.is_localhost()
 
         with multicast_expert.McastRxSocket(
             socket.AF_INET,
             mcast_ips=[mcast_address_v4],
-            iface=tx_socket.net_interface,
+            iface=tx_socket.network_interface,
             port=port,
             timeout=1,
             enable_external_loopback=True,
@@ -435,7 +436,7 @@ def test_external_loopback_v4() -> None:
             assert data == test_string
 
 
-def test_external_loopback_v6(nonloopback_iface_ipv6: str) -> None:
+def test_external_loopback_v6(nonloopback_iface_ipv6: IfaceInfo) -> None:
     """
     Check that packets sent over external interface can be received when `enable_external_loopback` is set.
     """
@@ -449,7 +450,7 @@ def test_external_loopback_v6(nonloopback_iface_ipv6: str) -> None:
         multicast_expert.McastRxSocket(
             socket.AF_INET6,
             mcast_ips=[mcast_address_v6],
-            iface_ips=[nonloopback_iface_ipv6],
+            ifaces=[nonloopback_iface_ipv6],
             port=port,
             timeout=1,
             enable_external_loopback=True,
@@ -467,12 +468,12 @@ def test_external_loopback_disabled_v4() -> None:
     with multicast_expert.McastTxSocket(
         socket.AF_INET, mcast_ips=[mcast_address_v4], enable_external_loopback=False
     ) as tx_socket:
-        assert not tx_socket.net_interface.is_localhost()
+        assert not tx_socket.network_interface.is_localhost()
 
         with multicast_expert.McastRxSocket(
             socket.AF_INET,
             mcast_ips=[mcast_address_v4],
-            iface=tx_socket.net_interface,
+            iface=tx_socket.network_interface,
             port=port,
             timeout=1,
             enable_external_loopback=False,
@@ -483,7 +484,7 @@ def test_external_loopback_disabled_v4() -> None:
             assert data == None
 
 
-def test_external_loopback_disabled_v6(nonloopback_iface_ipv6: str) -> None:
+def test_external_loopback_disabled_v6(nonloopback_iface_ipv6: IfaceInfo) -> None:
     """
     Check that packets sent over external interface are not received when `enable_external_loopback` is set to False.
     """
@@ -497,7 +498,7 @@ def test_external_loopback_disabled_v6(nonloopback_iface_ipv6: str) -> None:
         multicast_expert.McastRxSocket(
             socket.AF_INET6,
             mcast_ips=[mcast_address_v6],
-            iface_ips=[nonloopback_iface_ipv6],
+            ifaces=[nonloopback_iface_ipv6],
             port=port,
             timeout=1,
             enable_external_loopback=False,
