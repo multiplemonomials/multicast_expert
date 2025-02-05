@@ -142,7 +142,7 @@ def find_interfaces(specifier: IfaceSpecifier, *, ifaces: Sequence[IfaceInfo] | 
 
     If no interfaces match the specifier, a MulticastExpertError is raised.
 
-    :param specifier: Address as a string or an object
+    :param specifier: Specifier for the interface you want to find. If this is an IfaceInfo already, it will simply be returned.
     :param ifaces: If set, and ``specifier`` is not an IfaceInfo, these interfaces will be searched using the specifier.
         If not set, then the current set of interfaces will be scanned from the machine.
 
