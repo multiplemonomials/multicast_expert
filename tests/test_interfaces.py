@@ -84,7 +84,10 @@ def test_find_iface_by_ip():
         TEST_IFACES[0],
         TEST_IFACES[1],
     ]
+
+    # Test with and without scope ID
     assert multicast_expert.find_interfaces([IPv6Address("fe80::2dc9%20")], ifaces=TEST_IFACES) == [TEST_IFACES[0]]
+    assert multicast_expert.find_interfaces([IPv6Address("fe80::2dc9")], ifaces=TEST_IFACES) == [TEST_IFACES[0]]
 
     with pytest.raises(multicast_expert.MulticastExpertError, match="No matches found for interface IP address"):
         multicast_expert.find_interfaces([IPv4Address("192.168.1.12")])

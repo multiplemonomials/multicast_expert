@@ -92,8 +92,9 @@ IfaceSpecifier = Union[str, IPv4Address, IPv6Address, IfaceInfo]
 
 May be:
    - An IPv4 address assigned to the interface, as a string or IPv4Address
-   - An IPv6 address assigned to the interface, as a string or IPv6Address. Scope ID is required, i.e.
-       '1234::abcd%5' is OK but '1234::abcd' is not.
+   - An IPv6 address assigned to the interface, as a string or IPv6Address. Scope ID is optional, i.e.
+       '1234::abcd%5' and '1234::abcd' will both work. Scope ID is required if you wish to uniquely identify
+       an interface on a machine with multiple IPv6 interfaces with the same address.
    - An interface machine readable name
    - An IfaceInfo object
 """
@@ -179,30 +180,36 @@ def _find_interfaces_for_specifier(specifier: IfaceSpecifier, ifaces: Sequence[I
 
     if isinstance(specifier, str):
         try:
-            ip_addr = ipaddress.ip_address(specifier)
+            specifier_ip_addr = ipaddress.ip_address(specifier)
         except Exception as ex:
             message = f"Specifier '{specifier}' does not appear to be a valid interface name or IP address!"
             raise MulticastExpertError(message) from ex
     else:
-        ip_addr = specifier
+        specifier_ip_addr = specifier
 
-    is_ipv6 = isinstance(ip_addr, IPv6Address)
+    is_ipv6 = isinstance(specifier_ip_addr, IPv6Address)
 
     result = []
     for iface in ifaces:
         # Annoyingly IPv[4/6]Network does not compare as equal to IPv[4/6]Address, so we have to convert
         addrs_to_check: set[IPv4Address] | set[IPv6Address]
         if is_ipv6:
-            # go through string to work around https://github.com/python/cpython/issues/129538
-            addrs_to_check = {IPv6Address(ip_interface_to_ip_string(addr)) for addr in iface.ip6_addrs}
+            addrs_to_check: set[IPv6Address] = set()
+            for addr in iface.ip6_addrs:
+                # go through string to work around https://github.com/python/cpython/issues/129538
+                addr_string = ip_interface_to_ip_string(addr)
+                if specifier_ip_addr.scope_id is None:
+                    # Trim off the scope ID from the address string
+                    addr_string = addr_string.split("%")[0]
+                addrs_to_check.add(IPv6Address(addr_string))
         else:
             addrs_to_check = {addr.ip for addr in iface.ip4_addrs}
 
-        if ip_addr in addrs_to_check:
+        if specifier_ip_addr in addrs_to_check:
             result.append(iface)
 
     if len(result) == 0:
-        message = f"No matches found for interface IP address {ip_addr!s}"
+        message = f"No matches found for interface IP address {specifier_ip_addr!s}"
         raise MulticastExpertError(message)
 
     return result
