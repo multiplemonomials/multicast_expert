@@ -6,7 +6,7 @@ import warnings
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv4Interface, IPv6Address, IPv6Interface
-from typing import Union
+from typing import Union, cast
 
 import netifaces
 
@@ -192,18 +192,17 @@ def _find_interfaces_for_specifier(specifier: IfaceSpecifier, ifaces: Sequence[I
     result = []
     for iface in ifaces:
         # Annoyingly IPv[4/6]Network does not compare as equal to IPv[4/6]Address, so we have to convert
-        addrs_to_check: set[IPv4Address] | set[IPv6Address]
+        addrs_to_check: set[IPv4Address | IPv6Address] = set()
         if is_ipv6:
-            addrs_to_check: set[IPv6Address] = set()
             for addr in iface.ip6_addrs:
                 # go through string to work around https://github.com/python/cpython/issues/129538
                 addr_string = ip_interface_to_ip_string(addr)
-                if specifier_ip_addr.scope_id is None:
+                if cast(IPv6Address, specifier_ip_addr).scope_id is None:
                     # Trim off the scope ID from the address string
                     addr_string = addr_string.split("%")[0]
                 addrs_to_check.add(IPv6Address(addr_string))
         else:
-            addrs_to_check = {addr.ip for addr in iface.ip4_addrs}
+            addrs_to_check.update(addr.ip for addr in iface.ip4_addrs)
 
         if specifier_ip_addr in addrs_to_check:
             result.append(iface)

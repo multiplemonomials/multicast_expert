@@ -87,7 +87,7 @@ IfaceInfo(machine_name='{195D3CB7-6D21-4C5A-8514-C4F01494FDC0}', index=37, ip4_a
 But which of those is the interface we actually want to use?  Well, that depends on your specific network setup, but to make an educated guess, we also have a function to get the interface your machine uses to contact the internet.  This is not always correct but will work for many network setups.
 
 >>> multicast_expert.get_default_gateway_iface(socket.AF_INET).ip4_addrs
-IPv4Address('192.168.1.5')
+[IPv4Address('192.168.1.5')]
 
 Transmitting Multicasts
 =======================
@@ -102,7 +102,7 @@ The following block shows how to create a Tx socket and send some data:
 
 Note: when you construct the socket, you have to pass in all of the multicast IPs that you will want to use the socket to send to.  These must be known in advance in order to configure socket options correctly.
 
-Note 2: If you omitted the iface= argument, the get_default_gateway_iface() function would have been called to guess the iface ip.  So, we could have omitted this argument for the same result. However, you should pass this argument in most real usage, or at least make it configurable by the user. For the interface, you can pass the interface name, any of the interface's IP addresses, or an IfaceInfo dataclass received from scan_interfaces().
+Note 2: If you omitted the iface= argument, the get_default_gateway_iface() function would have been called to guess the interface to use.  So, we could have omitted this argument for the same result. However, you should pass this argument in most real usage, or at least make it configurable by the user. In addition to the interface IP address, you can pass the interface name or an IfaceInfo dataclass received from scan_interfaces().
 
 Receiving Multicasts
 ====================
