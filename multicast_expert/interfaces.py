@@ -3,7 +3,7 @@ from __future__ import annotations
 import ipaddress
 import socket
 import warnings
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv4Interface, IPv6Address, IPv6Interface
 from typing import Union
@@ -153,15 +153,14 @@ def scan_interfaces() -> list[IfaceInfo]:
     return result
 
 
-def find_interfaces(specifier: IfaceSpecifier, *, ifaces: Sequence[IfaceInfo] | None = None) -> list[IfaceInfo]:
+def _find_interfaces_for_specifier(specifier: IfaceSpecifier, ifaces: Sequence[IfaceInfo]) -> list[IfaceInfo]:
     """
     Find one or more IfaceInfos based on an interface specifier.
 
     If no interfaces match the specifier, a MulticastExpertError is raised.
 
     :param specifier: Specifier for the interface you want to find. If this is an IfaceInfo already, it will simply be returned.
-    :param ifaces: If set, and ``specifier`` is not an IfaceInfo, these interfaces will be searched using the specifier.
-        If not set, then the current set of interfaces will be scanned from the machine.
+    :param ifaces: If ``specifier`` is not an IfaceInfo, these interfaces will be searched using the specifier.
 
     :return: Found interface(s). Note that multiple interfaces can only be returned if the specifier
         is an IP address.
@@ -169,10 +168,6 @@ def find_interfaces(specifier: IfaceSpecifier, *, ifaces: Sequence[IfaceInfo] | 
     # Easy case, we already have the interface
     if isinstance(specifier, IfaceInfo):
         return [specifier]
-
-    # Now we need to actually scan the interfaces
-    if ifaces is None:
-        ifaces = scan_interfaces()
 
     # Try to match the specifier to any known interface name.
     # (please ${DEITY} do not let anyone name an interface with an IP address)
@@ -211,6 +206,31 @@ def find_interfaces(specifier: IfaceSpecifier, *, ifaces: Sequence[IfaceInfo] | 
         raise MulticastExpertError(message)
 
     return result
+
+
+def find_interfaces(
+    specifiers: Iterable[IfaceSpecifier], *, ifaces: Sequence[IfaceInfo] | None = None
+) -> list[IfaceInfo]:
+    """
+    Find interfaces (represented by IfaceInfo objects) based on a collection of interface specifiers.
+
+    If no interfaces match any individual specifier, a MulticastExpertError is raised.
+
+    :param specifiers: Specifier for each interface you want to find. If a specifier is an IfaceInfo already,
+        it will simply be added to the result list.
+    :param ifaces: If set, these interfaces will be searched using the specifier.
+        If not set, then the current set of interfaces will be scanned from the machine.
+
+    :return: Found interface(s). This function will usually return as many IfaceInfos as the number of
+        specifiers you passed in. However, if one IP address is used on multiple interfaces, and you
+        pass in that IP address as a specifier, multiple interfaces will be matched for that specifier. Also, if
+        multiple specifiers matched the same interface, the results will be deduplicated.
+    """
+    if ifaces is None:
+        ifaces = scan_interfaces()
+    results = [iface for specifier in specifiers for iface in _find_interfaces_for_specifier(specifier, ifaces=ifaces)]
+    result_dict = {iface.index: iface for iface in results}  # deduplicate interfaces
+    return list(result_dict.values())
 
 
 def get_interface_ips(include_ipv4: bool = True, include_ipv6: bool = True) -> list[str]:
@@ -301,7 +321,7 @@ def get_default_gateway_iface(addr_family: int, *, ifaces: list[IfaceInfo] | Non
 
     try:
         # Note: guaranteed to return only 1 element because we are passing the iface name
-        return find_interfaces(default_gateway_iface, ifaces=ifaces)[0]
+        return _find_interfaces_for_specifier(default_gateway_iface, ifaces=ifaces)[0]
     except MulticastExpertError:
         return None
 

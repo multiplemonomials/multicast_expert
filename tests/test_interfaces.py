@@ -65,13 +65,13 @@ def test_find_iface_by_name():
     Test that finding an interface by name works
     """
 
-    assert multicast_expert.find_interfaces("wlan0", ifaces=TEST_IFACES) == [TEST_IFACES[2]]
-    assert multicast_expert.find_interfaces("eth1", ifaces=TEST_IFACES) == [TEST_IFACES[1]]
+    assert multicast_expert.find_interfaces(["wlan0"], ifaces=TEST_IFACES) == [TEST_IFACES[2]]
+    assert multicast_expert.find_interfaces(["eth1"], ifaces=TEST_IFACES) == [TEST_IFACES[1]]
 
     with pytest.raises(
         multicast_expert.MulticastExpertError, match="does not appear to be a valid interface name or IP"
     ):
-        multicast_expert.find_interfaces("blargh")
+        multicast_expert.find_interfaces(["blargh"])
 
 
 def test_find_iface_by_ip():
@@ -79,15 +79,25 @@ def test_find_iface_by_ip():
     Test that finding an interface by IP address works
     """
 
-    assert multicast_expert.find_interfaces("192.168.1.11", ifaces=TEST_IFACES) == [TEST_IFACES[1]]
-    assert multicast_expert.find_interfaces(IPv4Address("192.168.1.10"), ifaces=TEST_IFACES) == [
+    assert multicast_expert.find_interfaces(["192.168.1.11"], ifaces=TEST_IFACES) == [TEST_IFACES[1]]
+    assert multicast_expert.find_interfaces([IPv4Address("192.168.1.10")], ifaces=TEST_IFACES) == [
         TEST_IFACES[0],
         TEST_IFACES[1],
     ]
-    assert multicast_expert.find_interfaces(IPv6Address("fe80::2dc9%20"), ifaces=TEST_IFACES) == [TEST_IFACES[0]]
+    assert multicast_expert.find_interfaces([IPv6Address("fe80::2dc9%20")], ifaces=TEST_IFACES) == [TEST_IFACES[0]]
 
     with pytest.raises(multicast_expert.MulticastExpertError, match="No matches found for interface IP address"):
-        multicast_expert.find_interfaces(IPv4Address("192.168.1.12"))
+        multicast_expert.find_interfaces([IPv4Address("192.168.1.12")])
 
     with pytest.raises(multicast_expert.MulticastExpertError, match="No matches found for interface IP address"):
-        multicast_expert.find_interfaces("1234::5678")
+        multicast_expert.find_interfaces(["1234::5678"])
+
+
+def test_find_iface_deduplication():
+    """
+    Test that passing multiple IPs of the same interface only returns that interface once
+    """
+    assert multicast_expert.find_interfaces(["192.168.1.11", "192.168.1.10"], ifaces=TEST_IFACES) == [
+        TEST_IFACES[1],
+        TEST_IFACES[0]
+    ]

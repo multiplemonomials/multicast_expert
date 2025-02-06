@@ -135,9 +135,7 @@ class McastRxSocket:
                 raise MulticastExpertError(message)
 
         # Resolve the interfaces now.
-        self._iface_infos: list[IfaceInfo] = []
-        for iface_specifier in iface_specifiers:
-            self._iface_infos.extend(find_interfaces(iface_specifier, ifaces=scanned_ifaces))
+        self._iface_infos = find_interfaces(iface_specifiers, ifaces=scanned_ifaces)
 
         # Sanity check multicast addresses
         for mcast_ip in self.mcast_ips:

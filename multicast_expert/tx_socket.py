@@ -85,7 +85,7 @@ class McastTxSocket:
                 message = "iface not specified but unable to determine the default gateway on this machine"
                 raise MulticastExpertError(message)
 
-        found_interfaces = find_interfaces(iface)
+        found_interfaces = find_interfaces([iface])
         if len(found_interfaces) > 1:
             message = (
                 f"Interface specifier {iface!s} matches multiple interfaces ({found_interfaces[0].machine_name} "
