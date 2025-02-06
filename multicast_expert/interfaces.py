@@ -38,6 +38,16 @@ class IfaceInfo:
     index: int
     """ Unique integer index of this interface. """
 
+    link_layer_address: str | None
+    """
+    Link layer address of this interface, as a string, or None if it could not be detected.
+
+    For most network connections, this is a 6 octet MAC address, e.g. 00:01:02:03:04:05. However,
+    it might also be something else if that's what your link uses. See the netifaces README for details.
+
+    Note: the loopback interface generally does not have a link layer address.
+    """
+
     ip4_addrs: Sequence[IPv4Interface]
     """
     IPv4 addresses assigned to this interface.
@@ -82,7 +92,8 @@ IfaceSpecifier = Union[str, IPv4Address, IPv6Address, IfaceInfo]
 
 May be:
    - An IPv4 address assigned to the interface, as a string or IPv4Address
-   - An IPv6 address assigned to the interface, as a string or IPv6Address
+   - An IPv6 address assigned to the interface, as a string or IPv6Address. Scope ID is required, i.e.
+       '1234::abcd%5' is OK but '1234::abcd' is not.
    - An interface machine readable name
    - An IfaceInfo object
 """
@@ -124,10 +135,16 @@ def scan_interfaces() -> list[IfaceInfo]:
 
                 ip6_addrs.append(IPv6Interface((addr_info["addr"], prefix_len)))
 
+        if netifaces.AF_LINK in addresses_at_each_level and len(addresses_at_each_level[netifaces.AF_LINK]) > 0:
+            link_layer_addr = addresses_at_each_level[netifaces.AF_LINK][0]["addr"]
+        else:
+            link_layer_addr = None
+
         result.append(
             IfaceInfo(
                 machine_name=iface_name,
                 index=iface_name_to_index(iface_name),
+                link_layer_address=link_layer_addr,
                 ip4_addrs=ip4_addrs,
                 ip6_addrs=ip6_addrs,
             )

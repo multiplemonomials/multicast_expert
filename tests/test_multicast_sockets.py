@@ -508,6 +508,3 @@ def test_external_loopback_disabled_v6(nonloopback_iface_ipv6: IfaceInfo) -> Non
         tx_socket.sendto(test_string, (mcast_address_v6, port))
         data = rx_socket.recv()
         assert data == None
-
-
-# TODO add tests for finding interface by name and by IP address

@@ -50,6 +50,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.group.dev.dependencies]
 pytest = ">=6.2"
 pytest-retry = ">=1.7.0"
+pytest-mock = ">=3.13.0"
 mypy = ">=1.8"
 ruff = '>=0.9'
 docsig = ">=0.67.0"
