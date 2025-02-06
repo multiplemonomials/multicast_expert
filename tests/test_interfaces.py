@@ -99,5 +99,5 @@ def test_find_iface_deduplication():
     """
     assert multicast_expert.find_interfaces(["192.168.1.11", "192.168.1.10"], ifaces=TEST_IFACES) == [
         TEST_IFACES[1],
-        TEST_IFACES[0]
+        TEST_IFACES[0],
     ]
