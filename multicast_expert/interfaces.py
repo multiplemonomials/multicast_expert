@@ -187,17 +187,15 @@ def _find_interfaces_for_specifier(specifier: IfaceSpecifier, ifaces: Sequence[I
     else:
         specifier_ip_addr = specifier
 
-    is_ipv6 = isinstance(specifier_ip_addr, IPv6Address)
-
     result = []
     for iface in ifaces:
         # Annoyingly IPv[4/6]Network does not compare as equal to IPv[4/6]Address, so we have to convert
         addrs_to_check: set[IPv4Address | IPv6Address] = set()
-        if is_ipv6:
+        if isinstance(specifier_ip_addr, IPv6Address):
             for addr in iface.ip6_addrs:
                 # go through string to work around https://github.com/python/cpython/issues/129538
                 addr_string = ip_interface_to_ip_string(addr)
-                if cast(IPv6Address, specifier_ip_addr).scope_id is None:
+                if specifier_ip_addr.scope_id is None:
                     # Trim off the scope ID from the address string
                     addr_string = addr_string.split("%")[0]
                 addrs_to_check.add(IPv6Address(addr_string))
@@ -232,8 +230,16 @@ def find_interfaces(
         pass in that IP address as a specifier, multiple interfaces will be matched for that specifier. Also, if
         multiple specifiers matched the same interface, the results will be deduplicated.
     """
+    # First check if we were passed all IfaceInfos. If so we can return early without scanning interfaces
+    specifiers = list(specifiers)
+    if all(isinstance(x, IfaceInfo) for x in specifiers):
+        return cast(list[IfaceInfo], specifiers)
+
+    # Now we must scan interfaces if not passed them earlier
     if ifaces is None:
         ifaces = scan_interfaces()
+
+    # Find candidate interfaces for each specifier
     results = [iface for specifier in specifiers for iface in _find_interfaces_for_specifier(specifier, ifaces=ifaces)]
     result_dict = {iface.index: iface for iface in results}  # deduplicate interfaces
     return list(result_dict.values())

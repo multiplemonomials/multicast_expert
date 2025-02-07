@@ -3,8 +3,8 @@ from ipaddress import IPv4Address, IPv4Interface, IPv6Address, IPv6Interface
 import multicast_expert
 import netifaces
 import pytest
-from multicast_expert import IfaceInfo
 import pytest_mock
+from multicast_expert import IfaceInfo
 
 TEST_IFACES = [
     # eth0 has v4 and v6 addresses
@@ -60,6 +60,9 @@ def test_scan_interfaces(mocker: pytest_mock.MockerFixture):
 
     assert multicast_expert.scan_interfaces() == TEST_IFACES
 
+    # Also test calling find_interfaces() without passing an ifaces= argument
+    assert multicast_expert.find_interfaces(["eth0", "eth1", "wlan0"]) == TEST_IFACES
+
 
 def test_find_iface_by_name():
     """
@@ -104,4 +107,30 @@ def test_find_iface_deduplication():
     assert multicast_expert.find_interfaces(["192.168.1.11", "192.168.1.10"], ifaces=TEST_IFACES) == [
         TEST_IFACES[1],
         TEST_IFACES[0],
+    ]
+
+
+def test_find_iface_mixed():
+    """
+    Test that we can pass IfaceInfos and IPs at the same time to find_interfaces()
+    """
+    assert multicast_expert.find_interfaces(["192.168.1.11", TEST_IFACES[2]], ifaces=TEST_IFACES) == [
+        TEST_IFACES[1],
+        TEST_IFACES[2],
+    ]
+
+
+def test_find_iface_does_not_scan_if_passed_ifaceinfos(mocker: pytest_mock.MockerFixture):
+    """
+    Test that find_interfaces() does not scan interfaces if all arguments are interface infos
+    """
+
+    ifaces_mock = mocker.patch("netifaces.interfaces")
+    ifaces_mock.return_value = []
+    result = multicast_expert.find_interfaces([TEST_IFACES[1], TEST_IFACES[2]])
+
+    assert not ifaces_mock.called
+    assert result == [
+        TEST_IFACES[1],
+        TEST_IFACES[2],
     ]
