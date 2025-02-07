@@ -79,8 +79,8 @@ Now let's get into some actual code examples.  Now first, before we can create a
 
 >>> import multicast_expert
 >>> multicast_expert.scan_interfaces()
-IfaceInfo(machine_name='{E61AD7AD-0125-4162-9967-98BE8A9CB330}', index=20, ip4_addrs=[], ip4_networks=[], ip6_addrs=[IPv6Address('fe80::1234:5678:%20')], ip6_networks=[IPv6Network('fe80::/64')])
-IfaceInfo(machine_name='{195D3CB7-6D21-4C5A-8514-C4F01494FDC0}', index=37, ip4_addrs=[IPv4Address('192.168.1.5')], ip4_networks=[IPv4Network('192.168.1.0/24')], ip6_addrs=[IPv6Address('fe80::1111:2222%37')], ip6_networks=[IPv6Network('fe80::/64')])
+IfaceInfo(machine_name='{E61AD7AD-0125-4162-9967-98BE8A9CB330}', index=20, link_layer_address='ad:b7:80:13:19:12', ip4_addrs=[], ip6_addrs=[IPv6Address('fe80::1234:5678:%20/64')])
+IfaceInfo(machine_name='{195D3CB7-6D21-4C5A-8514-C4F01494FDC0}', index=37, link_layer_address='a6:b7:80:20:19:12', ip4_addrs=[IPv4Address('192.168.1.5/24')], ip6_addrs=[IPv6Address('fe80::1111:2222%37/64')])
 
 (note that this function is a wrapper around the netifaces library, which provides quite a bit more functionality if you need it)
 

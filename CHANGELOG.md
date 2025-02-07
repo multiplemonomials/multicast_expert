@@ -55,7 +55,7 @@ Lorem Ipsum dolor sit amet.
 
 _______________________________________________________________________________
 
-## [1.5.0] - 2025-02-XX
+## [1.5.0] - 2025-02-07
 
 This release is focused on addressing the performance issues caused by multicast_expert rescanning the network interfaces on the machine each time a socket is opened. You can now avoid this overhead by using the new scan functions and then passing their result into the socket constructors' `iface` argument.
 
