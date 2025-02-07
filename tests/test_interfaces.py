@@ -4,6 +4,7 @@ import multicast_expert
 import netifaces
 import pytest
 from multicast_expert import IfaceInfo
+import pytest_mock
 
 TEST_IFACES = [
     # eth0 has v4 and v6 addresses
@@ -27,7 +28,7 @@ TEST_IFACES = [
 ]
 
 
-def test_scan_interfaces(mocker):
+def test_scan_interfaces(mocker: pytest_mock.MockerFixture):
     """
     Test scanning interfaces to create IfaceInfo objects
     """
