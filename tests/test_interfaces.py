@@ -130,7 +130,4 @@ def test_find_iface_does_not_scan_if_passed_ifaceinfos(mocker: pytest_mock.Mocke
     result = multicast_expert.find_interfaces([TEST_IFACES[1], TEST_IFACES[2]])
 
     assert not ifaces_mock.called
-    assert result == [
-        TEST_IFACES[1],
-        TEST_IFACES[2],
-    ]
+    assert result == [TEST_IFACES[1], TEST_IFACES[2]]
