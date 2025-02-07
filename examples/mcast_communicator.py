@@ -70,25 +70,25 @@ if machine_number < 1 or machine_number > 3:
     sys.exit(1)
 
 if len(sys.argv) > 3:
-    iface_ip = sys.argv[3]
+    iface = sys.argv[3]
 else:
-    iface_ip = multicast_expert.get_default_gateway_iface_ip(addr_family)
-    if iface_ip is None:
+    iface = multicast_expert.get_default_gateway_iface_ip(addr_family)
+    if iface is None:
         print("Unable to determine default gateway.  Please specify interface in arguments.")
         sys.exit(1)
 
 # Start listener thread
 listener_thread_obj = threading.Thread(
-    target=listener_thread, name="Multicast Listener Thread", args=(machine_number, addr_family, iface_ip), daemon=True
+    target=listener_thread, name="Multicast Listener Thread", args=(machine_number, addr_family, iface), daemon=True
 )
 listener_thread_obj.start()
 
 # Start transmitting
-print(f"Communicator starting on interface {iface_ip}.  Press Ctrl-C to exit")
+print(f"Communicator starting on interface {iface}.  Press Ctrl-C to exit")
 with multicast_expert.McastTxSocket(
     addr_family=addr_family,
     mcast_ips=[MULTICAST_ADDRESSES[addr_family][0], MULTICAST_ADDRESSES[addr_family][machine_number]],
-    iface_ip=iface_ip,
+    iface=iface,
 ) as tx_socket:
     while True:
         time.sleep(1.0)

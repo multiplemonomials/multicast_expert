@@ -55,6 +55,25 @@ Lorem Ipsum dolor sit amet.
 
 _______________________________________________________________________________
 
+## [1.5.0] - 2025-02-XX
+
+This release is focused on addressing the performance issues caused by multicast_expert rescanning the network interfaces on the machine each time a socket is opened. You can now avoid this overhead by using the new scan functions and then passing their result into the socket constructors' `iface` argument.
+
+### Added
+- `multicast_expert.scan_interfaces()` provides a more complete wrapper around `netifaces` It will scan all the interface details from the machine into a list of `IfaceInfo` dataclass objects.
+- `multicast_expert.find_interfaces()` provides an easy way to locate interfaces matching a given specifier. The specifier may be an IPv4 or IPv6 address of the interface (as a string or an object), or an interface name (e.g. eth0).
+
+### Changed
+- `McastTxSocket` and `McastRxSocket` now accept an `IfaceSpecifier` for their interface IP arguments instead of just an IP address string. This is compatible with old usage but allows a wider range of values to be used, including an interface obtained from `scan_interfaces()` or `find_interfaces()`.
+- `McastTxSocket` and `McastRxSocket` now accept IPv4Address and IPv6Address objects in addition to strings for the `mcast_ips` and `source_ips` constructor arguments.
+  - Note that the sendto() and recvfrom() functions still accept and return only string addresses, as this matches the behavior of the `socket` module (surprisingly).
+
+### Fixed
+- It is now possible to unambiguously open a socket on an interface that has the same IP as another interface (in most cases). Previously, it was undefined which interface you'd get if this happened.
+- It is now possible to open a `McastRxSocket` socket on a machine with interfaces with multiple IPs. This previously crashed unless you explicitly specified one interface to use.
+
+_______________________________________________________________________________
+
 ## [1.4.2] - 2025-01-31
 
 ### Fixed

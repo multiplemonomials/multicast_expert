@@ -1,18 +1,22 @@
 from __future__ import annotations
 
+import ipaddress
 import select
 import socket
+from collections.abc import Sequence
 from types import TracebackType
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from typing_extensions import Self
 
-from multicast_expert import LOCALHOST_IPV4, LOCALHOST_IPV6, os_multicast
+from multicast_expert import os_multicast
+from multicast_expert.interfaces import IfaceInfo, IfaceSpecifier, find_interfaces, scan_interfaces
 from multicast_expert.utils import (
     IPv4Or6Address,
+    MulticastAddress,
     MulticastExpertError,
-    get_interface_ips,
+    ip_interface_to_ip_string,
     is_windows,
     validate_mcast_ip,
 )
@@ -26,21 +30,30 @@ class McastRxSocket:
     def __init__(
         self,
         addr_family: int,
-        mcast_ips: list[str],
+        mcast_ips: Sequence[MulticastAddress],
         port: int,
-        iface_ip: str | None = None,
-        iface_ips: list[str] | None = None,
-        source_ips: list[str] | None = None,
+        iface: IfaceSpecifier | None = None,
+        ifaces: Sequence[IfaceSpecifier] | None = None,
+        source_ips: Sequence[str | ipaddress.IPv4Address | ipaddress.IPv6Address] | None = None,
         timeout: float | None = None,
         blocking: bool | None = None,
         enable_external_loopback: bool = False,
+        iface_ip: str | None = None,
+        iface_ips: Sequence[str] | None = None,
     ):
         """
         Create a socket which receives UDP datagrams over multicast.
 
         The socket must be opened (e.g. using a with statement) before it can be used.
 
-        Note: This socket can only receive multicast traffic, not regular unicast traffic.
+        By default (if no arguments are passed), the Rx socket will listen on all non-loopback interfaces of
+        the machine that have addresses in the given family (IPv4 or IPv6). If you wish to select a specific
+        interface or interfaces, pass them using the ``iface`` or ``ifaces`` arguments.
+
+        ``multicast_expert.scan_interfaces()`` may be used to obtain a list of interfaces on the machine,
+        and ``multicast_expert.find_interfaces()`` may be used to find interfaces matching a given specifier.
+        Passing in an IfaceInfo obtained from one of those functions to this function will make opening multiple
+        sockets more performant as there will be no need to scan interface info from the machine again.
 
         :param addr_family: Sets IPv4 or IPv6 operation.  Either socket.AF_INET or socket.AF_INET6.
         :param mcast_ips: List of all possible multicast IPs that this socket can receive from.
@@ -48,8 +61,8 @@ class McastRxSocket:
         :param iface_ips: Interface IPs that this socket receives from.  If left as None, multicast_expert will
             attempt to listen on all (non-loopback) interfaces discovered on your machine.  Be careful, this default
             may not be desired in many cases.  See the docs for details.
-        :param iface_ip: Legacy alias for iface_ips.  If this is given and iface_ips is not, this adds the
-            given interface IP to iface_ips.
+        :param iface: Specify one interface to open the Rx socket on.
+        :param ifaces: Specify multiple interfaces to open the Rx socket on.
         :param source_ips: Optional, list of source addresses to restrict the multicast subscription to.  The
             OS will drop messages not from one of these IPs, and may even use special IGMPv3 source-specific
             subscription packets to ask for only those specific multicasts from switches/routers.
@@ -61,12 +74,17 @@ class McastRxSocket:
         :param enable_external_loopback: Enable loopback of multicast packets sent on external interfaces. If and only
             if this option is set to True, McastRxSockets will be able to receive packets sent by McastTxSockets open on
             the same address, port, and interface.
+        :param iface_ip: Legacy alias for iface.
+        :param iface_ips: Legacy alias for iface_ips
         """
         self.addr_family = addr_family
-        self.mcast_ips = mcast_ips
-        self.port = port
-        self.source_ips = source_ips
 
+        # Convert all addresses from strings to IP addresses
+        self.mcast_ips = [ipaddress.ip_address(ip) for ip in mcast_ips]
+        if source_ips is not None:
+            self.source_ips = [ipaddress.ip_address(ip) for ip in source_ips]
+
+        self.port = port
         self.is_opened = False
 
         # blocking overrides timeout if set
@@ -75,40 +93,49 @@ class McastRxSocket:
         else:
             self.timeout = timeout
 
-        # Handle legacy iface_ip argument if given
-        self.iface_ips: list[str]
-        if iface_ip is not None:
-            if iface_ips is not None:
-                message = "Both iface_ips and iface_ip may not be specified at the same time!"
+        # Handle legacy iface_ip arguments
+        iface_specifiers: list[IfaceSpecifier] = [] if ifaces is None else list(ifaces)
+        if iface is not None:
+            if len(iface_specifiers) > 0:
+                message = "'iface' may not be specified at the same time as 'ifaces'"
                 raise MulticastExpertError(message)
+            iface_specifiers = [iface]
+        if iface_ips is not None:
+            if len(iface_specifiers) > 0:
+                message = "'iface_ips' may not be specified at the same time as other interface arguments"
+                raise MulticastExpertError(message)
+            iface_specifiers.extend(iface_ips)
+        if iface_ip is not None:
+            if len(iface_specifiers) > 0:
+                message = "'iface_ip' may not be specified at the same time as other interface arguments"
+                raise MulticastExpertError(message)
+            iface_specifiers = [iface_ip]
 
-            self.iface_ips = [iface_ip]
+        # Scanning the interfaces is expensive, so only do it if we need to
+        scanned_ifaces = None
+        if len(iface_specifiers) == 0 or any(not isinstance(specifier, IfaceInfo) for specifier in iface_specifiers):
+            scanned_ifaces = scan_interfaces()
 
-        elif iface_ips is None:
-            self.iface_ips = get_interface_ips(addr_family == socket.AF_INET, addr_family == socket.AF_INET6)
+        # If no interfaces passed, select all interfaces with IP addresses in the desired family
+        if len(iface_specifiers) == 0:
+            # Tell mypy that scanned_ifaces cannot be None
+            scanned_ifaces = cast(list[IfaceInfo], scanned_ifaces)
 
-            # Don't include the localhost IPs when listening on all interfaces, as that would cause
-            # us to receive all mcasts sent by the current machine.
-            if self.addr_family == socket.AF_INET6 and LOCALHOST_IPV6 in self.iface_ips:
-                self.iface_ips.remove(LOCALHOST_IPV6)
-            if self.addr_family == socket.AF_INET and LOCALHOST_IPV4 in self.iface_ips:
-                self.iface_ips.remove(LOCALHOST_IPV4)
+            for scanned_iface in scanned_ifaces:
+                if (addr_family == socket.AF_INET and len(scanned_iface.ip4_addrs) > 0) or (
+                    addr_family == socket.AF_INET6 and len(scanned_iface.ip6_addrs) > 0
+                ):
+                    # Don't include the localhost IPs when listening on all interfaces, as that would cause
+                    # us to receive all mcasts sent by the current machine.
+                    if not scanned_iface.is_localhost():
+                        iface_specifiers.append(scanned_iface)
 
-            if len(self.iface_ips) == 0:
+            if len(iface_specifiers) == 0:
                 message = "Unable to discover any listenable interfaces on this machine."
                 raise MulticastExpertError(message)
-        else:
-            self.iface_ips = iface_ips
 
-        # Resolve the interfaces now.  This prevents having to do this relatively expensive call
-        # multiple times later.
-        self.iface_infos = {}
-        for ip in self.iface_ips:
-            try:
-                self.iface_infos[ip] = os_multicast.get_iface_info(ip)
-            except KeyError as ex:
-                message = f"Interface IP {ip} does not seem to correspond to a valid interface.  Valid interfaces: {', '.join(get_interface_ips())}"
-                raise MulticastExpertError(message) from ex
+        # Resolve the interfaces now.
+        self._iface_infos = find_interfaces(iface_specifiers, ifaces=scanned_ifaces)
 
         # Sanity check multicast addresses
         for mcast_ip in self.mcast_ips:
@@ -134,26 +161,24 @@ class McastRxSocket:
         # to all multicast addresses on each of those sockets
         # On Unix, we need one socket bound to each multicast address.
         if is_windows:
-            for iface_ip in self.iface_ips:
+            for iface_info in self._iface_infos:
                 new_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
                 new_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-                new_socket.bind((iface_ip, self.port))
+                new_socket.bind((ip_interface_to_ip_string(iface_info.ip_addrs(self.addr_family)[0]), self.port))
 
                 if self.is_source_specific:
                     os_multicast.add_source_specific_memberships(
-                        new_socket, self.mcast_ips, cast(list[str], self.source_ips), self.iface_infos[iface_ip]
+                        new_socket, self.mcast_ips, self.source_ips, iface_info
                     )
                 else:
-                    os_multicast.add_memberships(
-                        new_socket, self.mcast_ips, self.iface_infos[iface_ip], self.addr_family
-                    )
+                    os_multicast.add_memberships(new_socket, self.mcast_ips, iface_info, self.addr_family)
 
                 # On Windows, by default, sent packets are looped back to local sockets on the same interface, even for interfaces
-                # that are not loopback.Change this by disabling IP_MULTICAST_LOOP unless the loopback interface is used or
+                # that are not loopback. Change this by disabling IP_MULTICAST_LOOP unless the loopback interface is used or
                 # if enable_external_loopback is set.
                 # Note: multicast_expert submitted a PR to clarify this in the Windows docs, and it was accepted!
-                loop_enabled = self.enable_external_loopback or iface_ip in (LOCALHOST_IPV4, LOCALHOST_IPV6)
+                loop_enabled = self.enable_external_loopback or iface_info.is_localhost()
                 if self.addr_family == socket.AF_INET:
                     new_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, loop_enabled)
                 else:
@@ -162,33 +187,37 @@ class McastRxSocket:
                 self.sockets.append(new_socket)
         else:
             for mcast_ip in self.mcast_ips:
-                # For IPv6 on Unix, we need to create one socket for each mcast_ip - iface_ip permutation.
+                # Determine sockets to create and ifaces to subscribe to.
+                # Outer list = sockets to create.
+                # Inner list = ifaces to subscribe to on each socket
+                sockets_and_ifaces: list[list[IfaceInfo]]
+
+                # For IPv6 on Unix, we need to create one socket for each mcast_ip - iface permutation.
                 # For IPv4, on the systems I tested at least, you can get away with subscribing to multiple
                 # interfaces on one socket.
                 if self.addr_family == socket.AF_INET6:
-                    iface_ip_groups = [[iface_ip] for iface_ip in self.iface_ips]
+                    sockets_and_ifaces = [[iface_info] for iface_info in self._iface_infos]
                 else:
-                    iface_ip_groups = [self.iface_ips]
+                    sockets_and_ifaces = [self._iface_infos]
 
-                for iface_ips_this_group in iface_ip_groups:
+                for ifaces_this_socket in sockets_and_ifaces:
                     new_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
                     new_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
                     if self.addr_family == socket.AF_INET6:
                         # Note: for Unix IPv6, need to specify the scope ID in the bind address in order for link-local mcast addresses to work.
-                        new_socket.bind((mcast_ip, self.port, 0, self.iface_infos[iface_ips_this_group[0]].iface_idx))
+                        # Also, for IPv6, len(ifaces_this_socket) is always 1.
+                        new_socket.bind((str(mcast_ip), self.port, 0, ifaces_this_socket[0].index))
                     else:
-                        new_socket.bind((mcast_ip, self.port))
+                        new_socket.bind((str(mcast_ip), self.port))
 
-                    for iface_ip in iface_ips_this_group:
+                    for iface_info in ifaces_this_socket:
                         if self.is_source_specific:
                             os_multicast.add_source_specific_memberships(
-                                new_socket, [mcast_ip], cast(list[str], self.source_ips), self.iface_infos[iface_ip]
+                                new_socket, [mcast_ip], self.source_ips, iface_info
                             )
                         else:
-                            os_multicast.add_memberships(
-                                new_socket, [mcast_ip], self.iface_infos[iface_ip], self.addr_family
-                            )
+                            os_multicast.add_memberships(new_socket, [mcast_ip], iface_info, self.addr_family)
 
                     self.sockets.append(new_socket)
 
@@ -277,3 +306,8 @@ class McastRxSocket:
 
         """
         self.timeout = timeout
+
+    @property
+    def network_interfaces(self) -> list[IfaceInfo]:
+        """Get the interface(s) used by this socket."""
+        return self._iface_infos
