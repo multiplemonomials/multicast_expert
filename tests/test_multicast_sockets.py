@@ -347,13 +347,7 @@ def test_v4_different_mcast_addr_blocked() -> None:
 
         # Neither socket should receive anything: mcast_rx_sock is on the right interface but the wrong mcast address,
         # and alternate_rx_sock is on the right mcast address but the wrong interface
-        try:
-            assert mcast_rx_sock.recvfrom() is None
-        except OSError as ex:
-            # WindowsError 10051 also OK because we are trying to receive from a socket on localhost, and windows
-            # can insta-error in this case.
-            assert hasattr(ex, "winerr") and ex.winerror == 10051
-
+        assert mcast_rx_sock.recvfrom() is None
         assert alternate_rx_sock.recvfrom() is None
 
 
