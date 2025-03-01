@@ -337,6 +337,7 @@ def test_v4_different_mcast_addr_blocked() -> None:
             mcast_ips=[mcast_address_v4_alternate],
             port=port,
             iface_ip=multicast_expert.get_default_gateway_iface_ip_v4(),
+            timeout=0.25,
         ) as alternate_rx_sock,
         multicast_expert.McastTxSocket(
             socket.AF_INET, mcast_ips=[mcast_address_v4_alternate], iface_ip=multicast_expert.LOCALHOST_IPV4
