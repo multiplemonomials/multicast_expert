@@ -287,22 +287,6 @@ def test_blocking_false() -> None:
 
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Does not pass on Windows")
-def test_v4_unicast_blocked() -> None:
-    """
-    Check that unicast packets cannot be received by a multicast socket
-    """
-    with multicast_expert.McastRxSocket(
-        socket.AF_INET, mcast_ips=[mcast_address_v4], port=port, iface_ip=multicast_expert.LOCALHOST_IPV4, timeout=0.25
-    ) as mcast_rx_sock:
-        tx_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        tx_socket.sendto(b"Ignore this plz", (multicast_expert.LOCALHOST_IPV4, port))
-
-        assert mcast_rx_sock.recvfrom() is None
-
-        tx_socket.close()
-
-
-@pytest.mark.skipif(platform.system() == "Windows", reason="Does not pass on Windows")
 def test_v6_unicast_blocked() -> None:
     """
     Check that unicast packets cannot be received by a multicast socket

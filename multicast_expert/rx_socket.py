@@ -3,6 +3,7 @@ from __future__ import annotations
 import ipaddress
 import select
 import socket
+import sys
 from collections.abc import Sequence
 from types import TracebackType
 from typing import TYPE_CHECKING, cast
@@ -204,6 +205,13 @@ class McastRxSocket:
                 # Unix IPv4 -- just open one socket and bind it to the needed interfaces and groups.
                 all_group_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
                 all_group_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+                if sys.platform == "darwin":
+                    # On MacOS we need to set SO_REUSEPORT as well as SO_REUSEADDR in order to bind multiple sockets
+                    # to 0.0.0.0:<port>
+                    # https://stackoverflow.com/questions/32661091/behavior-of-so-reuseaddr-and-so-reuseport-changed
+                    all_group_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+
                 all_group_socket.bind(("0.0.0.0", self.port))
 
                 for iface_info in self._iface_infos:
