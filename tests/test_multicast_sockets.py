@@ -318,6 +318,38 @@ def test_v6_unicast_blocked() -> None:
         tx_socket.close()
 
 
+def test_v4_different_mcast_addr_blocked() -> None:
+    """
+    Check that multicast packets to the same interface and port but a different mcast address cannot be received by a multicast socket.
+    To make it even more stringent, we do subscribe to that mcast address and that port on a *different* interface, and make sure we don't
+    get anything there either.
+    """
+    with (
+        multicast_expert.McastRxSocket(
+            socket.AF_INET,
+            mcast_ips=[mcast_address_v4],
+            port=port,
+            iface_ip=multicast_expert.LOCALHOST_IPV4,
+            timeout=0.25,
+        ) as mcast_rx_sock,
+        multicast_expert.McastRxSocket(
+            socket.AF_INET,
+            mcast_ips=[mcast_address_v4_alternate],
+            port=port,
+            iface_ip=multicast_expert.get_default_gateway_iface_ip_v4(),
+        ) as alternate_rx_sock,
+        multicast_expert.McastTxSocket(
+            socket.AF_INET, mcast_ips=[mcast_address_v4_alternate], iface_ip=multicast_expert.LOCALHOST_IPV4
+        ) as mcast_tx_sock,
+    ):
+        mcast_tx_sock.sendto(b"Ignore this plz", (mcast_address_v4_alternate, port))
+
+        # Neither socket should receive anything: mcast_rx_sock is on the right interface but the wrong mcast address,
+        # and alternate_rx_sock is on the right mcast address but the wrong interface
+        assert mcast_rx_sock.recvfrom() is None
+        assert alternate_rx_sock.recvfrom() is None
+
+
 def test_v4_loopback_multiple() -> None:
     """
     Check that we can open two different Rx sockets on the same port but different addresses, and use them
