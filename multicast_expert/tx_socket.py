@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+import sys
 from collections.abc import Sequence
 from types import TracebackType
 from typing import TYPE_CHECKING
@@ -174,11 +175,11 @@ class McastTxSocket:
         try:
             self.socket.sendto(tx_bytes, address)
         except OSError as ex:
-            # Windows will fail a sendto() call on the loopback address if it knows that no Rx socket is available
-            # to receive the packet. That's kinda nice but it's incompatible with the behavior of every other platform,
-            # and it also doesn't do it consistently.
-            # So, we just swallow the exception in this case.
-            if hasattr(ex, "winerr"):
+            if sys.platform == "win32":
+                # Windows will fail a sendto() call on the loopback address if it knows that no Rx socket is available
+                # to receive the packet. That's kinda nice but it's incompatible with the behavior of every other platform,
+                # and it also doesn't do it consistently.
+                # So, we just swallow the exception in this case.
                 if ex.winerror == 10051:
                     return
 
