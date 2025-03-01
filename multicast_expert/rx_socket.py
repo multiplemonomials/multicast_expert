@@ -186,40 +186,36 @@ class McastRxSocket:
 
                 self.sockets.append(new_socket)
         else:
-            for mcast_ip in self.mcast_ips:
-                # Determine sockets to create and ifaces to subscribe to.
-                # Outer list = sockets to create.
-                # Inner list = ifaces to subscribe to on each socket
-                sockets_and_ifaces: list[list[IfaceInfo]]
 
+            if self.addr_family == socket.AF_INET6:
                 # For IPv6 on Unix, we need to create one socket for each mcast_ip - iface permutation.
-                # For IPv4, on the systems I tested at least, you can get away with subscribing to multiple
-                # interfaces on one socket.
-                if self.addr_family == socket.AF_INET6:
-                    sockets_and_ifaces = [[iface_info] for iface_info in self._iface_infos]
-                else:
-                    sockets_and_ifaces = [self._iface_infos]
+                for mcast_ip in self.mcast_ips:
+                    for iface_info in self._iface_infos:
+                        new_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
+                        new_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-                for ifaces_this_socket in sockets_and_ifaces:
-                    new_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
-                    new_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-                    if self.addr_family == socket.AF_INET6:
                         # Note: for Unix IPv6, need to specify the scope ID in the bind address in order for link-local mcast addresses to work.
                         # Also, for IPv6, len(ifaces_this_socket) is always 1.
-                        new_socket.bind((str(mcast_ip), self.port, 0, ifaces_this_socket[0].index))
-                    else:
-                        new_socket.bind((str(mcast_ip), self.port))
+                        new_socket.bind((str(mcast_ip), self.port, 0, new_socket.index))
 
-                    for iface_info in ifaces_this_socket:
+                        os_multicast.add_memberships(new_socket, [mcast_ip], iface_info, self.addr_family)
+
+                        self.sockets.append(new_socket)
+                else:
+                    # Unix IPv4 -- just open one socket and bind it to the needed interfaces and groups.
+                    all_group_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
+                    all_group_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    all_group_socket.bind(("0.0.0.0", self.port))
+
+                    for iface_info in self._iface_infos:
                         if self.is_source_specific:
                             os_multicast.add_source_specific_memberships(
-                                new_socket, [mcast_ip], self.source_ips, iface_info
+                                all_group_socket, self.mcast_ips, self.source_ips, iface_info
                             )
                         else:
-                            os_multicast.add_memberships(new_socket, [mcast_ip], iface_info, self.addr_family)
+                            os_multicast.add_memberships(all_group_socket, self.mcast_ips, iface_info, self.addr_family)
 
-                    self.sockets.append(new_socket)
+                    self.sockets.append(all_group_socket)
 
         self.is_opened = True
 
