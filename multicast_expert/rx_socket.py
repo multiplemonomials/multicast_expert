@@ -194,7 +194,6 @@ class McastRxSocket:
                         new_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
                         # Note: for Unix IPv6, need to specify the scope ID in the bind address in order for link-local mcast addresses to work.
-                        # Also, for IPv6, len(ifaces_this_socket) is always 1.
                         new_socket.bind((str(mcast_ip), self.port, 0, iface_info.index))
 
                         os_multicast.add_memberships(new_socket, [mcast_ip], iface_info, self.addr_family)
