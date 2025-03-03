@@ -125,8 +125,8 @@ FAQ
 Q: What happens if an interface changes IP address (e.g. due to the user modifying a static IP) after I create a multicast socket on that interface?
     A: On all machines tested so far, multicast sockets will stick with their assigned interface once created, even if the IP of that interface changes or it is brought down.
 
-Q: Do McastRxSockets receive regular (unicast) UDP packets going to the same interface and port?
-    A: On Windows, yes.  On Unix, no.  Unfortunately, this is a platform difference that I haven't found an easy way to work around.
+Q: Do McastRxSockets receive regular (unicast) UDP packets going to the same port number?
+    A: In most cases yes, though this is not behavior that should be depended on. For example, on Windows IPv4, only unicast packets arriving at the specific interfaces on which the socket is open will be received, whereas on Unix IPv4, *all* unicast packets arriving on any interface with the right port number will be received.
 
 Q: Can I create multiple McastRxSockets on the same port and interface?
     A: As long as they have different mcast addresses, then yes, this works how you'd expect.

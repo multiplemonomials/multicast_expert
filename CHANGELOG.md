@@ -55,6 +55,16 @@ Lorem Ipsum dolor sit amet.
 
 _______________________________________________________________________________
 
+## [1.5.1] - 2025-03-03
+
+### Changed
+
+- McastRxSockets for Unix IPv4 now use only one OS socket internally, and use IP_MULTICAST_ALL=0 to maintain isolation between other multicast groups. This should improve performance as there are no longer a potentially large number of sockets that need to be select()-ed when receiving.
+  - This has the side effect that Unix IPv4 McastRxSockets can now receive unicast packets going to the port number that the socket is opened on (on any interface). 
+- Transmitting via localhost on Windows to a port+group combo with no Rx socket open now simply does nothing (consistent with other platforms) instead of producing a WinError. 
+
+_______________________________________________________________________________
+
 ## [1.5.0] - 2025-02-07
 
 This release is focused on addressing the performance issues caused by multicast_expert rescanning the network interfaces on the machine each time a socket is opened. You can now avoid this overhead by using the new scan functions and then passing their result into the socket constructors' `iface` argument.
