@@ -160,7 +160,6 @@ class McastRxSocket:
 
         # On Windows, we have to create a socket and bind it for each interface address, then subscribe
         # to all multicast addresses on each of those sockets
-        # On Unix, we need one socket bound to each multicast address.
         if is_windows:
             for iface_info in self._iface_infos:
                 new_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
@@ -208,9 +207,17 @@ class McastRxSocket:
 
                 if sys.platform == "darwin":
                     # On MacOS we need to set SO_REUSEPORT as well as SO_REUSEADDR in order to bind multiple sockets
-                    # to 0.0.0.0:<port>
+                    # to 0.0.0.0:<port>, so that opening another mcast socket on this port won't fail.
                     # https://stackoverflow.com/questions/32661091/behavior-of-so-reuseaddr-and-so-reuseport-changed
                     all_group_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+
+                if sys.platform == "linux":
+                    # On Linux, we need to disable the IP_MULTICAST_ALL option (enabled by default) to prevent
+                    # receiving packets to the same interface + port but a different multicast address.
+                    # Sadly the IP_MULTICAST_ALL constant is not available in python yet
+                    # (no bug open, but mentioned here)
+                    IP_MULTICAST_ALL = 49
+                    all_group_socket.setsockopt(socket.IPPROTO_IP, IP_MULTICAST_ALL, 0)
 
                 all_group_socket.bind(("0.0.0.0", self.port))
 

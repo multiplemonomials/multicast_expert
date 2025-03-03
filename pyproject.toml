@@ -5,7 +5,7 @@ name = "multicast_expert"
 # "~=3.9", so Poetry won't solve the versions since it cannot find a version of docsig that works for Python >=4
 requires-python = "~=3.9"
 
-version = "1.5.0"
+version = "1.6.0"
 description = "A library to take the fiddly parts out of multicast networking!"
 authors = [
     {name = "Jamie Smith", email = "jsmith@crackofdawn.onmicrosoft.com"}
