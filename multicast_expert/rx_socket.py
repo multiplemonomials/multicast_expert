@@ -216,7 +216,8 @@ class McastRxSocket:
                     # receiving packets to the same interface + port but a different multicast address.
                     # Sadly the IP_MULTICAST_ALL constant is not available in python yet
                     # (no bug open, but mentioned here)
-                    IP_MULTICAST_ALL = 49
+                    # https://github.com/python/cpython/pull/10294#issuecomment-1374345142
+                    IP_MULTICAST_ALL = 49  # noqa: N806
                     all_group_socket.setsockopt(socket.IPPROTO_IP, IP_MULTICAST_ALL, 0)
 
                 all_group_socket.bind(("0.0.0.0", self.port))
