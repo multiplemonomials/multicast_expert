@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import functools
 import ipaddress
 import select
 import socket
@@ -24,10 +23,16 @@ from multicast_expert.utils import (
     validate_mcast_ip,
 )
 
+PacketAndAddress = tuple[bytes, IPv4Or6Address]
+DEFAULT_RX_BUFSIZE = 4096  # Used by socket module
 
-class McastRxSocket:
+
+class BaseMcastRxSocket:
     """
-    Class to wrap a socket that receives from one or more multicast groups.
+    Base multicast Rx socket.
+
+    The superclass knows how to open and configure the sockets. The subclasses implement either synchronous or
+    asynchronous reception from those sockets.
     """
 
     def __init__(
@@ -249,13 +254,46 @@ class McastRxSocket:
             sock.close()
         self.is_opened = False
 
-    def recvfrom(self, bufsize: int = 4096, flags: int = 0) -> tuple[bytes, IPv4Or6Address] | None:
+    def filenos(self) -> list[int]:
+        """
+        Get a list of the socket file descriptor(s) used by this socket.
+
+        You can use this with the select module to implement blocking I/O on multiple different multicast sockets.
+
+        :return: socket file descriptor(s) used by this socket.
+        """
+        return [socket.fileno() for socket in self.sockets]
+
+    def settimeout(self, timeout: float | None) -> None:
+        """
+        Set the timeout on socket operations.
+
+        :param timeout: The timeout. Possible values:
+            - Number > 0: Receiving packets will abort if more than timeout seconds elapse while waiting for a packet.
+            - 0: Socket will be put in nonblocking mode
+            - None: Socket will block forever (the default)
+
+        """
+        self.timeout = timeout
+
+    @property
+    def network_interfaces(self) -> list[IfaceInfo]:
+        """Get the interface(s) used by this socket."""
+        return self._iface_infos
+
+
+class McastRxSocket(BaseMcastRxSocket):
+    """
+    Class to wrap a socket that receives from one or more multicast groups.
+    """
+
+    def recvfrom(self, bufsize: int = 4096, flags: int = 0) -> PacketAndAddress | None:
         """
         Receive a UDP packet from the socket, returning the bytes and the sender address.
 
         This respects the current blocking and timeout settings.
 
-        The "bufsize" and "flags" arguments have the same meaning as the arguments to socket.recv(), see the
+        The "bufsize" and "flags" arguments have the same meaning as the arguments to socket.recv(); see the
         manual for that function for details.
 
         :param bufsize: Maximum amount of data to be received at once.
@@ -283,7 +321,7 @@ class McastRxSocket:
 
         Note: If you need information about the sender of the packet, use recvfrom() instead.
 
-        The "bufsize" and "flags" arguments have the same meaning as the arguments to socket.recv(), see the
+        The "bufsize" and "flags" arguments have the same meaning as the arguments to socket.recv(); see the
         manual for that function for details.
 
         :param bufsize: Maximum amount of data to be received at once.
@@ -297,107 +335,91 @@ class McastRxSocket:
         else:
             return packet_and_addr[0]
 
-    async def async_recvfrom(self, bufsize: int = 4096, flags: int = 0) -> tuple[bytes, IPv4Or6Address] | None:
+
+class AsyncMcastRxSocket(BaseMcastRxSocket):
+    """
+    Class to wrap a socket that receives from one or more multicast groups using asynchronous operations.
+    """
+
+    @staticmethod
+    async def _recvfrom_wrapper(sock: socket.socket) -> tuple[socket.socket, PacketAndAddress]:
         """
-        Asynchronously receive a UDP packet from the socket, returning the bytes and the sender address.
+        Wrapper around the EventLoop.sock_recvfrom() function.
 
-        This respects the current blocking and timeout settings, though it doesn't make sense to use this function
-        if the socket is in nonblocking mode.
-
-        The "bufsize" and "flags" arguments have the same meaning as the arguments to socket.recv(), see the
-        manual for that function for details.
-
-        :param bufsize: Maximum amount of data to be received at once.
-        :param flags: Flags that will be passed to the OS.
-
-        :return: Tuple of (bytes, address).  For IPv4, address is a tuple of IP address (str) and port number.
-            For IPv6, address is a tuple of IP address (str), port number, flow info (int), and scope ID (int).
-        :raises asyncio.TimeoutError: If no bytes were received within the timeout. If the timeout is 0, this is
-            raised if there were no bytes available to be returned immediately.
+        This is used to associate the packet data with the socket that received it. This seems to be needed
+        as I wasn't able to find a way to attach "metadata" to a future in a way that passes through ``asyncio.wait()``.
         """
+        packet_and_addr: PacketAndAddress = await asyncio.get_running_loop().sock_recvfrom(sock, DEFAULT_RX_BUFSIZE)
+        return sock, packet_and_addr
 
-        if self.timeout == 0:
-            # Socket in nonblocking mode, use synchronous API
-            result = self.recvfrom(bufsize, flags)
-            if result is None:
-                raise asyncio.TimeoutError()
+    def __enter__(self) -> Self:
+        super().__enter__()
 
-        # This is using the method described here:
-        # https://stackoverflow.com/a/48250808/7083698
-        # to implement an asynchronous receive from multiple sockets.
-        # This works by telling the event loop (via add_reader()) to call a specific function
-        # (readable_callback()) when the socket fd is readable.
-        # When the first socket becomes readable, the future will enter the 'done' state and unblock the function.
-        # Then, the done callbacks will remove the socket fds from the event loop.
-        future: asyncio.Future[socket.socket] = asyncio.Future()
-        loop = asyncio.get_running_loop()
-
-        def readable_callback(readable_socket: socket.socket) -> None:
-            try:
-                future.set_result(readable_socket)
-            except asyncio.InvalidStateError:
-                # OK, another socket became readable first and triggered the future.
-                # We'll get this one next time.
-                pass
-
-        def done_callback(done_sock: socket.socket, _: asyncio.Future[socket.socket]) -> None:
-            loop.remove_reader(done_sock.fileno())
-
+        # For asyncio socket functions, we need to set the timeout on the actual sockets to 0 (nonblocking).
         for sock in self.sockets:
-            loop.add_reader(sock.fileno(), readable_callback, sock)
-            future.add_done_callback(functools.partial(done_callback, sock))
+            sock.settimeout(0)
 
-        if self.timeout is None:
-            readable_sock = await future
-        else:
-            readable_sock = await asyncio.wait_for(future, self.timeout)
+        # Start a receive operation on each of the sockets.
+        # We do this now so that we can have a known future for each socket that is active at all times.
+        self._recvfrom_tasks: dict[socket.socket, asyncio.Task[tuple[socket.socket, PacketAndAddress]]] = {
+            sock: asyncio.get_running_loop().create_task(self._recvfrom_wrapper(sock)) for sock in self.sockets
+        }
 
-        return cast(tuple[bytes, IPv4Or6Address], readable_sock.recvfrom(bufsize, flags))
+        return self
 
-    async def async_recv(self, bufsize: int = 4096, flags: int = 0) -> bytes | None:
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc: BaseException | None, traceback: TracebackType | None
+    ) -> None:
+        # Cancel all tasks
+        for recvfrom_task in self._recvfrom_tasks.values():
+            recvfrom_task.cancel()
+
+        super().__exit__(exc_type, exc, traceback)
+
+    async def recvfrom(self) -> PacketAndAddress:
+        """
+        Asynchronously receive a UDP packet from the socket.
+
+        Note that multicast_expert uses multiple sockets under the hood in some cases, and if multiple sockets
+        are in use, this will dequeue and return a packet from one of those sockets (which socket is not defined).
+
+        This respects the current blocking and timeout settings.
+
+        :return: List of tuples of (bytes, address).  For IPv4, address is a tuple of IP address (str) and port number.
+            For IPv6, address is a tuple of IP address (str), port number, flow info (int), and scope ID (int).
+        :raises asyncio.TimeoutError: If no packets were received within the timeout. If the timeout is 0, this is
+            raised if there were no packets available to be returned immediately.
+        """
+        # Do a "select" from all the current recvfrom futures to find one that is done.
+        done, pending = await asyncio.wait(
+            self._recvfrom_tasks.values(), timeout=self.timeout, return_when=asyncio.FIRST_COMPLETED
+        )
+
+        if len(done) == 0:
+            # No sockets can be read
+            raise asyncio.TimeoutError
+
+        # Pick the first one from the done list and return it. Others in the done list will be gotten on
+        # the next call to this function.
+        sock, result_packet = await next(iter(done))
+
+        # Reschedule another receive for this socket
+        self._recvfrom_tasks[sock] = asyncio.get_running_loop().create_task(self._recvfrom_wrapper(sock))
+
+        return result_packet
+
+    async def recv(self) -> bytes:
         """
         Asynchronously receive a UDP packet from the socket, returning the bytes.
 
-        This respects the current blocking and timeout settings, though it doesn't make sense to use this function
-        if the socket is in nonblocking mode.
+        Note that multicast_expert uses multiple sockets under the hood in some cases, and if multiple sockets
+        are in use, this will dequeue and return a packet from one of those sockets (which socket is not defined).
 
-        The "bufsize" and "flags" arguments have the same meaning as the arguments to socket.recv(), see the
-        manual for that function for details.
-
-        :param bufsize: Maximum amount of data to be received at once.
-        :param flags: Flags that will be passed to the OS.
+        This respects the current blocking and timeout settings.
 
         :return: Bytes received.
+        :raises asyncio.TimeoutError: If no packets were received within the timeout. If the timeout is 0, this is
+            raised if there were no packets available to be returned immediately.
         """
-        packet_and_addr = await self.async_recvfrom(bufsize, flags)
-        if packet_and_addr is None:
-            return None
-        else:
-            return packet_and_addr[0]
-
-    def filenos(self) -> list[int]:
-        """
-        Get a list of the socket file descriptor(s) used by this socket.
-
-        You can use this with the select module to implement blocking I/O on multiple different multicast sockets.
-
-        :return: socket file descriptor(s) used by this socket.
-        """
-        return [socket.fileno() for socket in self.sockets]
-
-    def settimeout(self, timeout: float | None) -> None:
-        """
-        Set the timeout on socket operations.
-
-        :param timeout: The timeout. Possible values:
-            - Number > 0: Receiving packets will abort if more than timeout seconds elapse while waiting for a packet.
-            - 0: Socket will be put in nonblocking mode
-            - None: Socket will block forever (the default)
-
-        """
-        self.timeout = timeout
-
-    @property
-    def network_interfaces(self) -> list[IfaceInfo]:
-        """Get the interface(s) used by this socket."""
-        return self._iface_infos
+        packet_and_addr = await self.recvfrom()
+        return packet_and_addr[0]

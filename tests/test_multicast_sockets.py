@@ -1,8 +1,9 @@
+import asyncio
 import platform
 import socket
+import time
 import warnings
 from ipaddress import IPv4Address, IPv6Address
-import asyncio
 
 import multicast_expert
 import netifaces
@@ -527,6 +528,7 @@ def test_external_loopback_disabled_v6(nonloopback_iface_ipv6: IfaceInfo) -> Non
         data = rx_socket.recv()
         assert data == None
 
+
 async def test_async_v4() -> None:
     """
     Check that we can receive packets correctly using an Rx socket in asynchronous mode.
@@ -537,27 +539,73 @@ async def test_async_v4() -> None:
     """
 
     # Open two Tx sockets, one on localhost and one on an external interface
-    with (multicast_expert.McastTxSocket(
-        socket.AF_INET, mcast_ips=[mcast_address_v4], enable_external_loopback=True,
-        iface=multicast_expert.get_default_gateway_iface(netifaces.AF_INET)
-    ) as external_iface_tx_socket,
-        multicast_expert.McastTxSocket(socket.AF_INET, mcast_ips=[mcast_address_v4], iface=multicast_expert.LOCALHOST_IPV4) as loopback_tx_socket):
+    with (
+        multicast_expert.McastTxSocket(
+            socket.AF_INET,
+            mcast_ips=[mcast_address_v4],
+            enable_external_loopback=True,
+            iface=multicast_expert.get_default_gateway_iface(netifaces.AF_INET),
+        ) as external_iface_tx_socket,
+        multicast_expert.McastTxSocket(
+            socket.AF_INET, mcast_ips=[mcast_address_v4], iface=multicast_expert.LOCALHOST_IPV4
+        ) as loopback_tx_socket,
+    ):
         assert not external_iface_tx_socket.network_interface.is_localhost()
 
         # Open a receive socket on both interfaces
-        with multicast_expert.McastRxSocket(
+        with multicast_expert.AsyncMcastRxSocket(
             socket.AF_INET,
             mcast_ips=[mcast_address_v4],
             ifaces=[external_iface_tx_socket.network_interface, loopback_tx_socket.network_interface],
             port=port,
             enable_external_loopback=True,
         ) as rx_socket:
-
-            # First, check that trying to receive without sending anything never completes
+            # First, check that trying to receive without sending anything never completes and triggers a timeout
             with pytest.raises(asyncio.TimeoutError):
-                await asyncio.wait_for(rx_socket.async_recv(), .5)
+                await asyncio.wait_for(asyncio.create_task(rx_socket.recv()), 0.5)
 
-            # Then check that setting a timeout does the same thing
-            rx_socket.settimeout(.2)
+            # Then check that setting a timeout does the same thing and raises a TimeoutError
+            rx_socket.settimeout(0.1)
             with pytest.raises(asyncio.TimeoutError):
-                await rx_socket.async_recv()
+                await rx_socket.recv()
+
+            # Make sure we can send a packet to just one of the interfaces and it gets received
+            loopback_tx_socket.sendto(b"Test 1", (mcast_address_v4, port))
+            assert await rx_socket.recv() == b"Test 1"
+
+            # There should NOT be any packets left in the socket now
+            with pytest.raises(asyncio.TimeoutError):
+                await rx_socket.recv()
+
+            # Now send one packet to each of the interfaces
+            loopback_tx_socket.sendto(b"Test 2", (mcast_address_v4, port))
+            external_iface_tx_socket.sendto(b"Test 3", (mcast_address_v4, port))
+
+            # Expect to receive two packets (order undefined)
+            results = set()
+            results.add(await rx_socket.recv())
+            results.add(await rx_socket.recv())
+            assert results == {b"Test 2", b"Test 3"}
+
+            # There should NOT be any packets left in the socket now
+            with pytest.raises(asyncio.TimeoutError):
+                await rx_socket.recv()
+
+            # Lastly, let's test receiving a packet while in a recv() call.
+            # We will use very large timeouts as who knows how long context switch delays are on GitLab CI runners...
+            rx_socket.settimeout(1)
+            start_time = time.time()
+            recv_task = asyncio.get_running_loop().create_task(rx_socket.recv())
+            await asyncio.sleep(0.5)
+
+            send_time = time.time()
+            external_iface_tx_socket.sendto(b"Test 4", (mcast_address_v4, port))
+
+            assert await recv_task == b"Test 4"
+            recv_time = time.time()
+
+            # Check times. The recv async task should have returned pretty soon after we sent the packet.
+            send_duration = send_time - start_time
+            recv_duration = recv_time - start_time
+            assert 0.5 < send_duration <= recv_duration
+            assert 0.5 < recv_duration < 0.75
