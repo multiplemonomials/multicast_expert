@@ -3,6 +3,7 @@ from __future__ import annotations
 import ipaddress
 import select
 import socket
+import sys
 from collections.abc import Sequence
 from types import TracebackType
 from typing import TYPE_CHECKING, cast
@@ -159,7 +160,6 @@ class McastRxSocket:
 
         # On Windows, we have to create a socket and bind it for each interface address, then subscribe
         # to all multicast addresses on each of those sockets
-        # On Unix, we need one socket bound to each multicast address.
         if is_windows:
             for iface_info in self._iface_infos:
                 new_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
@@ -186,40 +186,50 @@ class McastRxSocket:
 
                 self.sockets.append(new_socket)
         else:
-            for mcast_ip in self.mcast_ips:
-                # Determine sockets to create and ifaces to subscribe to.
-                # Outer list = sockets to create.
-                # Inner list = ifaces to subscribe to on each socket
-                sockets_and_ifaces: list[list[IfaceInfo]]
-
+            if self.addr_family == socket.AF_INET6:
                 # For IPv6 on Unix, we need to create one socket for each mcast_ip - iface permutation.
-                # For IPv4, on the systems I tested at least, you can get away with subscribing to multiple
-                # interfaces on one socket.
-                if self.addr_family == socket.AF_INET6:
-                    sockets_and_ifaces = [[iface_info] for iface_info in self._iface_infos]
-                else:
-                    sockets_and_ifaces = [self._iface_infos]
+                for mcast_ip in self.mcast_ips:
+                    for iface_info in self._iface_infos:
+                        new_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
+                        new_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-                for ifaces_this_socket in sockets_and_ifaces:
-                    new_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
-                    new_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-                    if self.addr_family == socket.AF_INET6:
                         # Note: for Unix IPv6, need to specify the scope ID in the bind address in order for link-local mcast addresses to work.
-                        # Also, for IPv6, len(ifaces_this_socket) is always 1.
-                        new_socket.bind((str(mcast_ip), self.port, 0, ifaces_this_socket[0].index))
+                        new_socket.bind((str(mcast_ip), self.port, 0, iface_info.index))
+
+                        os_multicast.add_memberships(new_socket, [mcast_ip], iface_info, self.addr_family)
+
+                        self.sockets.append(new_socket)
+            else:
+                # Unix IPv4 -- just open one socket and bind it to the needed interfaces and groups.
+                all_group_socket = socket.socket(family=self.addr_family, type=socket.SOCK_DGRAM)
+                all_group_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+                if sys.platform == "darwin":
+                    # On MacOS we need to set SO_REUSEPORT as well as SO_REUSEADDR in order to bind multiple sockets
+                    # to 0.0.0.0:<port>, so that opening another mcast socket on this port won't fail.
+                    # https://stackoverflow.com/questions/32661091/behavior-of-so-reuseaddr-and-so-reuseport-changed
+                    all_group_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+
+                if sys.platform == "linux":
+                    # On Linux, we need to disable the IP_MULTICAST_ALL option (enabled by default) to prevent
+                    # receiving packets to the same interface + port but a different multicast address.
+                    # Sadly the IP_MULTICAST_ALL constant is not available in python yet
+                    # (no bug open, but mentioned here)
+                    # https://github.com/python/cpython/pull/10294#issuecomment-1374345142
+                    IP_MULTICAST_ALL = 49  # noqa: N806
+                    all_group_socket.setsockopt(socket.IPPROTO_IP, IP_MULTICAST_ALL, 0)
+
+                all_group_socket.bind(("0.0.0.0", self.port))
+
+                for iface_info in self._iface_infos:
+                    if self.is_source_specific:
+                        os_multicast.add_source_specific_memberships(
+                            all_group_socket, self.mcast_ips, self.source_ips, iface_info
+                        )
                     else:
-                        new_socket.bind((str(mcast_ip), self.port))
+                        os_multicast.add_memberships(all_group_socket, self.mcast_ips, iface_info, self.addr_family)
 
-                    for iface_info in ifaces_this_socket:
-                        if self.is_source_specific:
-                            os_multicast.add_source_specific_memberships(
-                                new_socket, [mcast_ip], self.source_ips, iface_info
-                            )
-                        else:
-                            os_multicast.add_memberships(new_socket, [mcast_ip], iface_info, self.addr_family)
-
-                    self.sockets.append(new_socket)
+                self.sockets.append(all_group_socket)
 
         self.is_opened = True
 

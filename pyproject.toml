@@ -5,7 +5,7 @@ name = "multicast_expert"
 # "~=3.9", so Poetry won't solve the versions since it cannot find a version of docsig that works for Python >=4
 requires-python = "~=3.9"
 
-version = "1.5.0"
+version = "1.5.1"
 description = "A library to take the fiddly parts out of multicast networking!"
 authors = [
     {name = "Jamie Smith", email = "jsmith@crackofdawn.onmicrosoft.com"}
@@ -131,6 +131,8 @@ ignore = [
     'PERF203', # Allow try-except within loops. Sometimes this is needed!
     'ERA001',  # Allow commented code. This lint gets a false positive on docsig ignore comments!
     'PERF401', # Allow for loops that could be comprehensions. Sometimes this makes code easier to understand.
+    'S104',    # Allow binding sockets to the wildcard interface. In our case, we apply socket options to those sockets so that they are restricted to specific interfaces and mcast IPs
+    'PLR5501', # Stop collapsing my if statements!
 ]
 
 [tool.ruff.lint.flake8-quotes]

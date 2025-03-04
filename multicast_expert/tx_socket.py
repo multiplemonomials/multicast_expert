@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+import sys
 from collections.abc import Sequence
 from types import TracebackType
 from typing import TYPE_CHECKING
@@ -171,7 +172,18 @@ class McastTxSocket:
             message = f"The given destination address ({address[0]}) was not one of the addresses given for this McastTxSocket to transmit to!"
             raise MulticastExpertError(message)
 
-        self.socket.sendto(tx_bytes, address)
+        try:
+            self.socket.sendto(tx_bytes, address)
+        except OSError as ex:
+            if sys.platform == "win32":
+                # Windows will fail a sendto() call on the loopback address if it knows that no Rx socket is available
+                # to receive the packet. That's kinda nice but it's incompatible with the behavior of every other platform,
+                # and it also doesn't do it consistently.
+                # So, we just swallow the exception in this case.
+                if ex.winerror == 10051:
+                    return
+
+            raise
 
     def fileno(self) -> int:
         """

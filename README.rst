@@ -79,8 +79,8 @@ Now let's get into some actual code examples.  Now first, before we can create a
 
 >>> import multicast_expert
 >>> multicast_expert.scan_interfaces()
-IfaceInfo(machine_name='{E61AD7AD-0125-4162-9967-98BE8A9CB330}', index=20, link_layer_address='ad:b7:80:13:19:12', ip4_addrs=[], ip6_addrs=[IPv6Address('fe80::1234:5678:%20/64')])
-IfaceInfo(machine_name='{195D3CB7-6D21-4C5A-8514-C4F01494FDC0}', index=37, link_layer_address='a6:b7:80:20:19:12', ip4_addrs=[IPv4Address('192.168.1.5/24')], ip6_addrs=[IPv6Address('fe80::1111:2222%37/64')])
+IfaceInfo(machine_name='{E61AD7AD-0125-4162-9967-98BE8A9CB330}', index=20, link_layer_address='ad:b7:80:13:19:12', ip4_addrs=[], ip6_addrs=[IPv6Interface('fe80::1234:5678:%20/64')])
+IfaceInfo(machine_name='{195D3CB7-6D21-4C5A-8514-C4F01494FDC0}', index=37, link_layer_address='a6:b7:80:20:19:12', ip4_addrs=[IPv4Interface('192.168.1.5/24')], ip6_addrs=[IPv6Interface('fe80::1111:2222%37/64')])
 
 (note that this function is a wrapper around the netifaces library, which provides quite a bit more functionality if you need it)
 
@@ -125,8 +125,8 @@ FAQ
 Q: What happens if an interface changes IP address (e.g. due to the user modifying a static IP) after I create a multicast socket on that interface?
     A: On all machines tested so far, multicast sockets will stick with their assigned interface once created, even if the IP of that interface changes or it is brought down.
 
-Q: Do McastRxSockets receive regular (unicast) UDP packets going to the same interface and port?
-    A: On Windows, yes.  On Unix, no.  Unfortunately, this is a platform difference that I haven't found an easy way to work around.
+Q: Do McastRxSockets receive regular (unicast) UDP packets going to the same port number?
+    A: In most cases yes, though this is not behavior that should be depended on. For example, on Windows IPv4, only unicast packets arriving at the specific interfaces on which the socket is open will be received, whereas on Unix IPv4, *all* unicast packets arriving on any interface with the right port number will be received.
 
 Q: Can I create multiple McastRxSockets on the same port and interface?
     A: As long as they have different mcast addresses, then yes, this works how you'd expect.
@@ -185,6 +185,3 @@ Q: What if, rather than using a Multicast Expert socket inside a single ``with``
             self.exit_stack = None
 
 With this setup, the socket will be opened when you call ``init()``, and will stay open until someone calls ``deinit()``.  Note however that this transfers the responsibility for closing the socket onto you: if you forget to call ``deinit()`` before you're done using the class, the socket could stay open longer than intended.
-
-Q: When I try to send a packet to the loopback address on Windows, I get "[WinError 10051] A socket operation was attempted to an unreachable network"!
-    A: On Windows, to send multicasts through the loopback interface, you must open a listening socket before trying to send packets, or an error will be generated. So, make sure there's an application listing to the loopback interface on the correct port before you send your multicast packet.
