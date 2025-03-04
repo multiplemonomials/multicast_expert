@@ -55,6 +55,14 @@ Lorem Ipsum dolor sit amet.
 
 _______________________________________________________________________________
 
+## [1.6.0] - 2025-03-04
+
+### Added
+
+- `AsyncMcastRxSocket` is now available (as long as you are using Python 3.11 or later). This class provides an asyncio-compatible way to receive with a multicast Rx socket.
+
+_______________________________________________________________________________
+
 ## [1.5.1] - 2025-03-03
 
 ### Changed

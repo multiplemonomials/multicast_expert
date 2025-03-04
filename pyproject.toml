@@ -134,7 +134,6 @@ ignore = [
     'PERF401', # Allow for loops that could be comprehensions. Sometimes this makes code easier to understand.
     'S104',    # Allow binding sockets to the wildcard interface. In our case, we apply socket options to those sockets so that they are restricted to specific interfaces and mcast IPs
     'PLR5501', # Stop collapsing my if statements!
-    'SIM105',  # Allow try-except-pass
 ]
 
 [tool.ruff.lint.flake8-quotes]
