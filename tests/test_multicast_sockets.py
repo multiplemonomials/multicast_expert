@@ -1,6 +1,7 @@
 import asyncio
 import platform
 import socket
+import sys
 import time
 import warnings
 from ipaddress import IPv4Address, IPv6Address
@@ -529,6 +530,7 @@ def test_external_loopback_disabled_v6(nonloopback_iface_ipv6: IfaceInfo) -> Non
         assert data == None
 
 
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="Async support requires python 3.11")
 async def test_async_v4() -> None:
     """
     Check that we can receive packets correctly using an Rx socket in asynchronous mode.

@@ -38,10 +38,12 @@ from multicast_expert.interfaces import get_default_gateway_iface_ip_v4 as get_d
 from multicast_expert.interfaces import get_default_gateway_iface_ip_v6 as get_default_gateway_iface_ip_v6
 from multicast_expert.interfaces import get_interface_ips as get_interface_ips
 from multicast_expert.interfaces import scan_interfaces as scan_interfaces
-from multicast_expert.rx_socket import AsyncMcastRxSocket as AsyncMcastRxSocket
 from multicast_expert.rx_socket import McastRxSocket as McastRxSocket
 from multicast_expert.tx_socket import McastTxSocket as McastTxSocket
 from multicast_expert.utils import IPv4Or6Address as IPv4Or6Address
 from multicast_expert.utils import MulticastAddress as MulticastAddress
 from multicast_expert.utils import MulticastExpertError as MulticastExpertError
 from multicast_expert.utils import validate_mcast_ip as validate_mcast_ip
+
+if sys.version_info >= (3, 11):
+    from multicast_expert.async_rx_socket import AsyncMcastRxSocket as AsyncMcastRxSocket
