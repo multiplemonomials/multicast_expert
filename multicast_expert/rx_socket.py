@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import functools
 import ipaddress
 import select
 import socket
@@ -290,6 +292,84 @@ class McastRxSocket:
         :return: Bytes received.
         """
         packet_and_addr = self.recvfrom(bufsize, flags)
+        if packet_and_addr is None:
+            return None
+        else:
+            return packet_and_addr[0]
+
+    async def async_recvfrom(self, bufsize: int = 4096, flags: int = 0) -> tuple[bytes, IPv4Or6Address] | None:
+        """
+        Asynchronously receive a UDP packet from the socket, returning the bytes and the sender address.
+
+        This respects the current blocking and timeout settings, though it doesn't make sense to use this function
+        if the socket is in nonblocking mode.
+
+        The "bufsize" and "flags" arguments have the same meaning as the arguments to socket.recv(), see the
+        manual for that function for details.
+
+        :param bufsize: Maximum amount of data to be received at once.
+        :param flags: Flags that will be passed to the OS.
+
+        :return: Tuple of (bytes, address).  For IPv4, address is a tuple of IP address (str) and port number.
+            For IPv6, address is a tuple of IP address (str), port number, flow info (int), and scope ID (int).
+        :raises asyncio.TimeoutError: If no bytes were received within the timeout. If the timeout is 0, this is
+            raised if there were no bytes available to be returned immediately.
+        """
+
+        if self.timeout == 0:
+            # Socket in nonblocking mode, use synchronous API
+            result = self.recvfrom(bufsize, flags)
+            if result is None:
+                raise asyncio.TimeoutError()
+
+        # This is using the method described here:
+        # https://stackoverflow.com/a/48250808/7083698
+        # to implement an asynchronous receive from multiple sockets.
+        # This works by telling the event loop (via add_reader()) to call a specific function
+        # (readable_callback()) when the socket fd is readable.
+        # When the first socket becomes readable, the future will enter the 'done' state and unblock the function.
+        # Then, the done callbacks will remove the socket fds from the event loop.
+        future: asyncio.Future[socket.socket] = asyncio.Future()
+        loop = asyncio.get_running_loop()
+
+        def readable_callback(readable_socket: socket.socket) -> None:
+            try:
+                future.set_result(readable_socket)
+            except asyncio.InvalidStateError:
+                # OK, another socket became readable first and triggered the future.
+                # We'll get this one next time.
+                pass
+
+        def done_callback(done_sock: socket.socket, _: asyncio.Future[socket.socket]) -> None:
+            loop.remove_reader(done_sock.fileno())
+
+        for sock in self.sockets:
+            loop.add_reader(sock.fileno(), readable_callback, sock)
+            future.add_done_callback(functools.partial(done_callback, sock))
+
+        if self.timeout is None:
+            readable_sock = await future
+        else:
+            readable_sock = await asyncio.wait_for(future, self.timeout)
+
+        return cast(tuple[bytes, IPv4Or6Address], readable_sock.recvfrom(bufsize, flags))
+
+    async def async_recv(self, bufsize: int = 4096, flags: int = 0) -> bytes | None:
+        """
+        Asynchronously receive a UDP packet from the socket, returning the bytes.
+
+        This respects the current blocking and timeout settings, though it doesn't make sense to use this function
+        if the socket is in nonblocking mode.
+
+        The "bufsize" and "flags" arguments have the same meaning as the arguments to socket.recv(), see the
+        manual for that function for details.
+
+        :param bufsize: Maximum amount of data to be received at once.
+        :param flags: Flags that will be passed to the OS.
+
+        :return: Bytes received.
+        """
+        packet_and_addr = await self.async_recvfrom(bufsize, flags)
         if packet_and_addr is None:
             return None
         else:

@@ -2,6 +2,7 @@ import platform
 import socket
 import warnings
 from ipaddress import IPv4Address, IPv6Address
+import asyncio
 
 import multicast_expert
 import netifaces
@@ -525,3 +526,38 @@ def test_external_loopback_disabled_v6(nonloopback_iface_ipv6: IfaceInfo) -> Non
         tx_socket.sendto(test_string, (mcast_address_v6, port))
         data = rx_socket.recv()
         assert data == None
+
+async def test_async_v4() -> None:
+    """
+    Check that we can receive packets correctly using an Rx socket in asynchronous mode.
+
+    Note: we would like for this Rx socket to have at least two internal sockets, so that
+    we can check that the select()-like operation works. On Windows, at least, we can guarantee that
+    by opening it on two interfaces and using both of them.
+    """
+
+    # Open two Tx sockets, one on localhost and one on an external interface
+    with (multicast_expert.McastTxSocket(
+        socket.AF_INET, mcast_ips=[mcast_address_v4], enable_external_loopback=True,
+        iface=multicast_expert.get_default_gateway_iface(netifaces.AF_INET)
+    ) as external_iface_tx_socket,
+        multicast_expert.McastTxSocket(socket.AF_INET, mcast_ips=[mcast_address_v4], iface=multicast_expert.LOCALHOST_IPV4) as loopback_tx_socket):
+        assert not external_iface_tx_socket.network_interface.is_localhost()
+
+        # Open a receive socket on both interfaces
+        with multicast_expert.McastRxSocket(
+            socket.AF_INET,
+            mcast_ips=[mcast_address_v4],
+            ifaces=[external_iface_tx_socket.network_interface, loopback_tx_socket.network_interface],
+            port=port,
+            enable_external_loopback=True,
+        ) as rx_socket:
+
+            # First, check that trying to receive without sending anything never completes
+            with pytest.raises(asyncio.TimeoutError):
+                await asyncio.wait_for(rx_socket.async_recv(), .5)
+
+            # Then check that setting a timeout does the same thing
+            rx_socket.settimeout(.2)
+            with pytest.raises(asyncio.TimeoutError):
+                await rx_socket.async_recv()
