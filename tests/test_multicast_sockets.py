@@ -571,6 +571,11 @@ async def test_async_v4() -> None:
             with pytest.raises(asyncio.TimeoutError):
                 await rx_socket.recv()
 
+            # Let's also try a timeout of 0
+            rx_socket.settimeout(0)
+            with pytest.raises(asyncio.TimeoutError):
+                await rx_socket.recv()
+
             # Make sure we can send a packet to just one of the interfaces and it gets received
             loopback_tx_socket.sendto(b"Test 1", (mcast_address_v4, port))
             assert await rx_socket.recv() == b"Test 1"
@@ -585,9 +590,12 @@ async def test_async_v4() -> None:
 
             # Expect to receive two packets (order undefined)
             results = set()
-            results.add(await rx_socket.recv())
-            results.add(await rx_socket.recv())
-            assert results == {b"Test 2", b"Test 3"}
+            results.add(await rx_socket.recvfrom())
+            results.add(await rx_socket.recvfrom())
+            assert results == {
+                (b"Test 2", loopback_tx_socket.getsockname()),
+                (b"Test 3", external_iface_tx_socket.getsockname()),
+            }
 
             # There should NOT be any packets left in the socket now
             with pytest.raises(asyncio.TimeoutError):

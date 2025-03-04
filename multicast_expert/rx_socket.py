@@ -22,7 +22,7 @@ from multicast_expert.utils import (
     validate_mcast_ip,
 )
 
-PacketAndAddress = tuple[bytes, IPv4Or6Address]
+PacketAndSenderAddress = tuple[bytes, IPv4Or6Address]
 DEFAULT_RX_BUFSIZE = 4096  # Used by socket module
 
 
@@ -286,7 +286,7 @@ class McastRxSocket(BaseMcastRxSocket):
     Class to wrap a socket that receives from one or more multicast groups.
     """
 
-    def recvfrom(self, bufsize: int = 4096, flags: int = 0) -> PacketAndAddress | None:
+    def recvfrom(self, bufsize: int = 4096, flags: int = 0) -> PacketAndSenderAddress | None:
         """
         Receive a UDP packet from the socket, returning the bytes and the sender address.
 
@@ -298,7 +298,7 @@ class McastRxSocket(BaseMcastRxSocket):
         :param bufsize: Maximum amount of data to be received at once.
         :param flags: Flags that will be passed to the OS.
 
-        :return: Tuple of (bytes, address).  For IPv4, address is a tuple of IP address (str) and port number.
+        :return: Tuple of (bytes, address).  For IPv4, address is a tuple of sender IP address (str) and port number.
             For IPv6, address is a tuple of IP address (str), port number, flow info (int), and scope ID (int).
             If no packets were received (nonblocking mode or timeout), None is returned.
         """
