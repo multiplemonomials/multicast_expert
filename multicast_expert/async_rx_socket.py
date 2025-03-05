@@ -40,7 +40,7 @@ class AsyncMcastRxSocket(BaseMcastRxSocket):
         # Start a receive operation on each of the sockets.
         # We do this now so that we can have a known future for each socket that is active at all times.
         self._recvfrom_tasks: dict[socket.socket, asyncio.Task[tuple[socket.socket, PacketAndSenderAddress]]] = {
-            sock: asyncio.get_running_loop().create_task(self._recvfrom_wrapper(sock)) for sock in self.sockets
+            sock: asyncio.create_task(self._recvfrom_wrapper(sock)) for sock in self.sockets
         }
 
         return self
@@ -83,7 +83,7 @@ class AsyncMcastRxSocket(BaseMcastRxSocket):
         sock, result_packet = await next(iter(done))
 
         # Reschedule another receive for this socket
-        self._recvfrom_tasks[sock] = asyncio.get_running_loop().create_task(self._recvfrom_wrapper(sock))
+        self._recvfrom_tasks[sock] = asyncio.create_task(self._recvfrom_wrapper(sock))
 
         return result_packet
 

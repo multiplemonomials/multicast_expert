@@ -564,7 +564,7 @@ async def test_async_v4() -> None:
         ) as rx_socket:
             # First, check that trying to receive without sending anything never completes and triggers a timeout
             with pytest.raises(asyncio.TimeoutError):
-                await asyncio.wait_for(asyncio.create_task(rx_socket.recv()), 0.5)
+                await asyncio.wait_for(rx_socket.recv(), 0.5)
 
             # Then check that setting a timeout does the same thing and raises a TimeoutError
             rx_socket.settimeout(0.1)
@@ -604,15 +604,15 @@ async def test_async_v4() -> None:
             # Lastly, let's test receiving a packet while in a recv() call.
             # We will use very large timeouts as who knows how long context switch delays are on GitLab CI runners...
             rx_socket.settimeout(1)
-            start_time = time.time()
+            start_time = time.monotonic()
             recv_task = asyncio.get_running_loop().create_task(rx_socket.recv())
             await asyncio.sleep(0.5)
 
-            send_time = time.time()
+            send_time = time.monotonic()
             external_iface_tx_socket.sendto(b"Test 4", (mcast_address_v4, port))
 
             assert await recv_task == b"Test 4"
-            recv_time = time.time()
+            recv_time = time.monotonic()
 
             # Check times. The recv async task should have returned pretty soon after we sent the packet.
             send_duration = send_time - start_time
