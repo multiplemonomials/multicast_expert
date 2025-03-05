@@ -116,6 +116,12 @@ The above code will listen on the 239.1.2.3 multicast address, and will block un
 
 For receiving multicasts, you often don't need to pass an interface name, as the default is to listen on all possible interfaces of the machine. However, you can pass one or more specific interfaces to listen on if you like, for performance or functionality reasons.
 
+Also, as of multicast_expert 1.6.0, as long as you have Python >=3.11, there is an asynchronous version of the Rx socket available:
+>>> with multicast_expert.AsyncMcastRxSocket(socket.AF_INET, mcast_ips=['239.1.2.3'], port=12345) as mcast_rx_sock:
+...     bytes, src_address = await mcast_rx_sock.recvfrom()
+
+This version of the code can be used inside an async context to give up control until the socket has received one or more packets. The timeout (as set via settimeout() or the constructor) is obeyed by the async version of the socket as well.
+
 Full Example
 ============
 For a complete example of how to use this library, see the system test script `here <https://github.com/multiplemonomials/multicast_expert/blob/main/examples/mcast_communicator.py>`_.

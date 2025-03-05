@@ -44,3 +44,6 @@ from multicast_expert.utils import IPv4Or6Address as IPv4Or6Address
 from multicast_expert.utils import MulticastAddress as MulticastAddress
 from multicast_expert.utils import MulticastExpertError as MulticastExpertError
 from multicast_expert.utils import validate_mcast_ip as validate_mcast_ip
+
+if sys.version_info >= (3, 11):
+    from multicast_expert.async_rx_socket import AsyncMcastRxSocket as AsyncMcastRxSocket

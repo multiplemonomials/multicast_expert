@@ -22,10 +22,16 @@ from multicast_expert.utils import (
     validate_mcast_ip,
 )
 
+PacketAndSenderAddress = tuple[bytes, IPv4Or6Address]
+DEFAULT_RX_BUFSIZE = 4096  # Used by socket module
 
-class McastRxSocket:
+
+class BaseMcastRxSocket:
     """
-    Class to wrap a socket that receives from one or more multicast groups.
+    Base multicast Rx socket.
+
+    The superclass knows how to open and configure the sockets. The subclasses implement either synchronous or
+    asynchronous reception from those sockets.
     """
 
     def __init__(
@@ -247,54 +253,6 @@ class McastRxSocket:
             sock.close()
         self.is_opened = False
 
-    def recvfrom(self, bufsize: int = 4096, flags: int = 0) -> tuple[bytes, IPv4Or6Address] | None:
-        """
-        Receive a UDP packet from the socket, returning the bytes and the sender address.
-
-        This respects the current blocking and timeout settings.
-
-        The "bufsize" and "flags" arguments have the same meaning as the arguments to socket.recv(), see the
-        manual for that function for details.
-
-        :param bufsize: Maximum amount of data to be received at once.
-        :param flags: Flags that will be passed to the OS.
-
-        :return: Tuple of (bytes, address).  For IPv4, address is a tuple of IP address (str) and port number.
-            For IPv6, address is a tuple of IP address (str), port number, flow info (int), and scope ID (int).
-            If no packets were received (nonblocking mode or timeout), None is returned.
-        """
-        # Use select() to find a socket that is ready for reading
-        read_list, write_list, exception_list = select.select(self.sockets, [], [], self.timeout)
-
-        if len(read_list) == 0:
-            # No data to read
-            return None
-
-        # Since we only want to return one packet at a time, just pick the first readable socket.
-        return cast(tuple[bytes, IPv4Or6Address], read_list[0].recvfrom(bufsize, flags))
-
-    def recv(self, bufsize: int = 4096, flags: int = 0) -> bytes | None:
-        """
-        Receive a UDP packet from the socket, returning the bytes.
-
-        This respects the current blocking and timeout settings.
-
-        Note: If you need information about the sender of the packet, use recvfrom() instead.
-
-        The "bufsize" and "flags" arguments have the same meaning as the arguments to socket.recv(), see the
-        manual for that function for details.
-
-        :param bufsize: Maximum amount of data to be received at once.
-        :param flags: Flags that will be passed to the OS.
-
-        :return: Bytes received.
-        """
-        packet_and_addr = self.recvfrom(bufsize, flags)
-        if packet_and_addr is None:
-            return None
-        else:
-            return packet_and_addr[0]
-
     def filenos(self) -> list[int]:
         """
         Get a list of the socket file descriptor(s) used by this socket.
@@ -321,3 +279,57 @@ class McastRxSocket:
     def network_interfaces(self) -> list[IfaceInfo]:
         """Get the interface(s) used by this socket."""
         return self._iface_infos
+
+
+class McastRxSocket(BaseMcastRxSocket):
+    """
+    Class to wrap a socket that receives from one or more multicast groups.
+    """
+
+    def recvfrom(self, bufsize: int = 4096, flags: int = 0) -> PacketAndSenderAddress | None:
+        """
+        Receive a UDP packet from the socket, returning the bytes and the sender address.
+
+        This respects the current blocking and timeout settings.
+
+        The "bufsize" and "flags" arguments have the same meaning as the arguments to socket.recv(); see the
+        manual for that function for details.
+
+        :param bufsize: Maximum amount of data to be received at once.
+        :param flags: Flags that will be passed to the OS.
+
+        :return: Tuple of (bytes, address).  For IPv4, address is a tuple of sender IP address (str) and port number.
+            For IPv6, address is a tuple of IP address (str), port number, flow info (int), and scope ID (int).
+            If no packets were received (nonblocking mode or timeout), None is returned.
+        """
+        # Use select() to find a socket that is ready for reading
+        read_list, write_list, exception_list = select.select(self.sockets, [], [], self.timeout)
+
+        if len(read_list) == 0:
+            # No data to read
+            return None
+
+        # Since we only want to return one packet at a time, just pick the first readable socket.
+        return cast(tuple[bytes, IPv4Or6Address], read_list[0].recvfrom(bufsize, flags))
+
+    def recv(self, bufsize: int = 4096, flags: int = 0) -> bytes | None:
+        """
+        Receive a UDP packet from the socket, returning the bytes.
+
+        This respects the current blocking and timeout settings.
+
+        Note: If you need information about the sender of the packet, use recvfrom() instead.
+
+        The "bufsize" and "flags" arguments have the same meaning as the arguments to socket.recv(); see the
+        manual for that function for details.
+
+        :param bufsize: Maximum amount of data to be received at once.
+        :param flags: Flags that will be passed to the OS.
+
+        :return: Bytes received.
+        """
+        packet_and_addr = self.recvfrom(bufsize, flags)
+        if packet_and_addr is None:
+            return None
+        else:
+            return packet_and_addr[0]

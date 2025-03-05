@@ -45,7 +45,9 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          # Normally we want to run this using the oldest supported python version to catch errors,
+          # but we need at least py3.11 for the async code to work.
+          python-version: "3.11"
       - name: Install Poetry
         uses: Gr1N/setup-poetry@v9
       - name: Install project
