@@ -604,15 +604,15 @@ async def test_async_v4() -> None:
             # Lastly, let's test receiving a packet while in a recv() call.
             # We will use very large timeouts as who knows how long context switch delays are on GitLab CI runners...
             rx_socket.settimeout(1)
-            start_time = time.monotonic()
+            start_time = time.perf_counter()
             recv_task = asyncio.get_running_loop().create_task(rx_socket.recv())
             await asyncio.sleep(0.5)
 
-            send_time = time.monotonic()
+            send_time = time.perf_counter()
             external_iface_tx_socket.sendto(b"Test 4", (mcast_address_v4, port))
 
             assert await recv_task == b"Test 4"
-            recv_time = time.monotonic()
+            recv_time = time.perf_counter()
 
             # Check times. The recv async task should have returned pretty soon after we sent the packet.
             send_duration = send_time - start_time
