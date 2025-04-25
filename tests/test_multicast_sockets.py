@@ -616,9 +616,13 @@ async def test_async_v4() -> None:
 
             # Check times. The recv async task should have returned pretty soon after we sent the packet.
             send_duration = send_time - start_time
-            recv_duration = recv_time - start_time
-            assert 0.5 < send_duration <= recv_duration
-            assert 0.5 < recv_duration < 0.75
+
+            # We should have sent the packet after about a 0.5 sec sleep (though sometimes it seems like
+            # the sleep can sleep for a few ms short of the intended time)
+            assert send_duration > 0.45
+
+            # We should have received the packet after sending it, and pretty soon after sending it
+            assert send_time <= recv_time < (send_time + 0.5)
 
 
 def test_duplicate_mcast_address() -> None:
