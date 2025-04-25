@@ -67,8 +67,10 @@ class McastTxSocket:
             the same address, port, and interface.
         :param iface_ip: Legacy alias for ``iface``. Deprecated.
         """
+        # Use a set to remove any duplicate IPs
+        self.mcast_ips = list({ipaddress.ip_address(mcast_ip) for mcast_ip in mcast_ips})
+
         self.addr_family = addr_family
-        self.mcast_ips = [ipaddress.ip_address(mcast_ip) for mcast_ip in mcast_ips]
         self.mcast_ips_set = {str(ip) for ip in self.mcast_ips}  # Used for checking IPs in send()
         self.ttl = ttl
         self.is_opened = False
