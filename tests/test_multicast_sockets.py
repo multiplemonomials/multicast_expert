@@ -620,6 +620,7 @@ async def test_async_v4() -> None:
             assert 0.5 < send_duration <= recv_duration
             assert 0.5 < recv_duration < 0.75
 
+
 def test_duplicate_mcast_address() -> None:
     """
     Check that nothing bad happens if we open a Tx or Rx socket with two duplicated multicast addresses
