@@ -619,3 +619,26 @@ async def test_async_v4() -> None:
             recv_duration = recv_time - start_time
             assert 0.5 < send_duration <= recv_duration
             assert 0.5 < recv_duration < 0.75
+
+def test_duplicate_mcast_address() -> None:
+    """
+    Check that nothing bad happens if we open a Tx or Rx socket with two duplicated multicast addresses
+    """
+    with (
+        multicast_expert.McastRxSocket(
+            socket.AF_INET,
+            mcast_ips=[mcast_address_v4, mcast_address_v4],
+            port=port,
+            iface_ip=multicast_expert.LOCALHOST_IPV4,
+            timeout=1.0,
+        ) as mcast_rx_sock,
+        multicast_expert.McastTxSocket(
+            socket.AF_INET, mcast_ips=[mcast_address_v4, mcast_address_v4], iface_ip=multicast_expert.LOCALHOST_IPV4
+        ) as mcast_tx_sock,
+    ):
+        mcast_tx_sock.sendto(test_string, (mcast_address_v4, port))
+
+        packet = mcast_rx_sock.recvfrom()
+        assert packet is not None
+        assert packet[0] == test_string
+        assert packet[1] == (multicast_expert.LOCALHOST_IPV4, mcast_tx_sock.getsockname()[1])

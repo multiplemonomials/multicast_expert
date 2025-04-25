@@ -87,9 +87,10 @@ class BaseMcastRxSocket:
         self.addr_family = addr_family
 
         # Convert all addresses from strings to IP addresses
-        self.mcast_ips = [ipaddress.ip_address(ip) for ip in mcast_ips]
+        # Use a set to remove any duplicate IPs, as the socket option code can't handle this
+        self.mcast_ips = list(set(ipaddress.ip_address(ip) for ip in mcast_ips))
         if source_ips is not None:
-            self.source_ips = [ipaddress.ip_address(ip) for ip in source_ips]
+            self.source_ips = list(set(ipaddress.ip_address(ip) for ip in source_ips))
 
         self.port = port
         self.is_opened = False
