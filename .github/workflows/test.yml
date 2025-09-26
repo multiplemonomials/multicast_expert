@@ -35,9 +35,7 @@ jobs:
       - name: Run Pytest (Mac)
         if: ${{ matrix.os == 'macos-latest' }}
         run: |
-          poetry_env_script=$(poetry env activate)
-          echo "poetry_env_script: $poetry_env_script"
-          source $poetry_env_script
+          $(poetry env activate)
           sudo -E env PATH="$PATH" pytest --retries 3 --capture=no
 
   # This job exists to run mypy on Windows and Mac, as sometimes it can turn up different errors in these cases.
