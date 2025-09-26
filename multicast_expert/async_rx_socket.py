@@ -70,7 +70,7 @@ class AsyncMcastRxSocket(BaseMcastRxSocket):
             raised if there were no packets available to be returned immediately.
         """
         # Do a "select" from all the current recvfrom futures to find one that is done.
-        done, pending = await asyncio.wait(
+        done, _pending = await asyncio.wait(
             self._recvfrom_tasks.values(), timeout=self.timeout, return_when=asyncio.FIRST_COMPLETED
         )
 

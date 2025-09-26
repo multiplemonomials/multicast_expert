@@ -10,7 +10,7 @@ jobs:
     steps:
 
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Install Pyright
       # Note: npm is already installed because it's included in the GH Actions imate
@@ -18,7 +18,7 @@ jobs:
         npm install -g pyright
 
     - name: Set up Python 3.11
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.11'
 

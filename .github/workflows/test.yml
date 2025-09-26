@@ -13,9 +13,9 @@ jobs:
         shell: bash
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install Poetry
@@ -25,11 +25,21 @@ jobs:
       - name: Configure IP routes # See "Development Setup.md"
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: sudo ip -6 route add table local ff11::/16 dev lo
+      - name: Run Pytest (Windows/Linux)
+        if: ${{ matrix.os != 'macos-latest' }}
+        run: poetry run pytest --capture=no
 
-      # Note: Currently using pytest with retries due to intermittent (~10% of the time) failure when
-      # running unit tests on macos runners due to "exec format error" when setting socket options (???).
-      - name: Run Pytest
-        run: poetry run pytest --retries 3 --capture=no
+      # Note that on Mac, we need to run with sudo (see the FAQ section in the README for details).
+      # To do this, we activate the Poetry environment, then use a special sudo command that runs
+      # a command with the current process's current environment variables.
+      # Also there appears to be a MacOS bug that causes random failures of setsockopt(), so we
+      # use retries to work around this.
+      # https://bugs.openjdk.org/browse/JDK-8144003
+      - name: Run Pytest (Mac)
+        if: ${{ matrix.os == 'macos-latest' }}
+        run: |
+          $(poetry env activate)
+          sudo -E env PATH="$PATH" pytest --retries 3 --capture=no
 
   # This job exists to run mypy on Windows and Mac, as sometimes it can turn up different errors in these cases.
   my-py:
@@ -41,9 +51,9 @@ jobs:
         shell: bash
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           # Normally we want to run this using the oldest supported python version to catch errors,
           # but we need at least py3.11 for the async code to work.

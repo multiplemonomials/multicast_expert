@@ -304,7 +304,7 @@ class McastRxSocket(BaseMcastRxSocket):
             If no packets were received (nonblocking mode or timeout), None is returned.
         """
         # Use select() to find a socket that is ready for reading
-        read_list, write_list, exception_list = select.select(self.sockets, [], [], self.timeout)
+        read_list, _write_list, _exception_list = select.select(self.sockets, [], [], self.timeout)
 
         if len(read_list) == 0:
             # No data to read

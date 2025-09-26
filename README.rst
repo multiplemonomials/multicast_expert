@@ -100,6 +100,9 @@ The following block shows how to create a Tx socket and send some data:
 >>> with multicast_expert.McastTxSocket(socket.AF_INET, mcast_ips=['239.1.2.3'], iface='192.168.0.248') as mcast_tx_sock:
 ...     mcast_tx_sock.sendto(b'Hello World', ('239.1.2.3', 12345))
 
+.. attention::
+    This code will not work on MacOS 15+ without additional setup. See the "FAQ - Mac-Specific" section below for more details.
+
 Note: when you construct the socket, you have to pass in all of the multicast IPs that you will want to use the socket to send to.  These must be known in advance in order to configure socket options correctly.
 
 Note 2: If you omitted the iface= argument, the get_default_gateway_iface() function would have been called to guess the interface to use.  So, we could have omitted this argument for the same result. However, you should pass this argument in most real usage, or at least make it configurable by the user. In addition to the interface IP address, you can pass the interface name or an IfaceInfo dataclass received from scan_interfaces().
@@ -126,8 +129,8 @@ Full Example
 ============
 For a complete example of how to use this library, see the system test script `here <https://github.com/multiplemonomials/multicast_expert/blob/main/examples/mcast_communicator.py>`_.
 
-FAQ
-===
+FAQ - General
+=============
 Q: What happens if an interface changes IP address (e.g. due to the user modifying a static IP) after I create a multicast socket on that interface?
     A: On all machines tested so far, multicast sockets will stick with their assigned interface once created, even if the IP of that interface changes or it is brought down.
 
@@ -139,20 +142,6 @@ Q: Can I create multiple McastRxSockets on the same port and interface?
 
 Q: Is it possible to receive multicasts on all interfaces with a single socket?
     A: Yes!  As of multicast_expert 1.2.0, the default behavior of McastRxSocket, when you do not pass any interface IP addresses explicitly, is to listen on all non-loopback interfaces of the machine.
-
-Q: Why are my multicasts to the loopback device not going through in Linux?
-    A: Linux seems to be very picky about what it allows through loopback.  First of all, you need to use ``ip route`` to add a route directing your multicast address to the ``lo`` interface.  For example, the command ``sudo ip route add 239.2.2.0/24 dev lo`` would allow any multicasts in the 239.2.2.x range through loopback.
-
-    Additionally, for IPv6, I have found that multicasts to addresses that don't start with ``ffx1`` for any value of x (i.e. non-interface-local addresses) do not seem to be sent on loopback.  Still trying to find any document explaining this behavior...
-
-Q: My multicasts aren't being received in Linux, even though I see them coming in in packet dumps.
-    A: On Linux, you must also be careful of a kernel feature called Reverse Path Filtering (RPF).  You see, in most cases, multicast doesn't care about unicast IPs or subnets -- you can quite easily have a machine with IP 10.0.0.1 send multicasts to 192.168.1.2, even though those are on different subnets so they can't normally communicate.  However, RPF throws a wrench in this.  In its default "loose" mode (setting 2), it blocks reception of IP packets if they come from an IP address not reachable by any interface.  So, for example, if you receive a multicast from 10.0.0.1 but you only have routes in your routing table for 192.168.x.x IP addresses, the kernel will summarily drop the packet.  The easiest fix is to label one of your network interfaces as a default route.  This makes all IP addresses reachable from an interface, so all packets will be able to get by the check.
-
-    RPF's "strict" mode (setting 1) is even worse.  It applies the same check, but on a per-interface level.  So, in order to receive packets from multicast address X, each individual interface must have a routing rule permitting it to send packets to X.  If this is too much of a pain to set up, you can turn RPF off using sysctl (`this seems like a decent guide <https://access.redhat.com/solutions/53031#:~:text=rp_filter%20parameter%20only%20has%20two,default%20is%201%20(loose).>`_).  Just remember to change it both for the "all" interface and for whichever interfaces you want to affect -- the kernel takes the stricter of the two values.
-    
-    Another common issue is, if you have two NICs connected to each other on the same machine and want to send packets between them, you will need to change the `ipv4.accept_local <https://sysctl-explorer.net/net/ipv4/accept_local/>`_ setting, e.g. ``sudo sh -c "echo 1 > /proc/sys/net/ipv4/conf/all/accept_local"`` (note that additional work is needed to make this persist across reboots)
-
-    Last but not least, you may also want to check any firewalls (firewalld/ufw/iptables) and see if those are blocking multicast packets.
 
 Q: What is IGMP Querier mode on a managed network switch?  Should I use it?
     A: IGMP Querier mode is an alternate mode for IGMP to run in where, instead of just passively listening for IGMP join/leave messages, the network switch sends out IGMP Membership Query packets at a fixed interval. These packets cause each network device to respond with a list of the multicast groups it's subscribed to, which the switch (and any other switches along the network path) can use to update their routing tables. If a device doesn't include a given group in its subscription list, then its subscription to the group is removed!
@@ -184,7 +173,7 @@ Q: What if, rather than using a Multicast Expert socket inside a single ``with``
             with contextlib.ExitStack() as temp_exit_stack: # Creates a temporary ExitStack
                 temp_exit_stack.enter_context(self.mcast_socket) # Enter the mcast socket using the temporary stack
                 self.exit_stack = temp_exit_stack.pop_all() # Creates a new exit stack with ownership of mcast_socket "moved" into it
-        
+
         def deinit():
             if self.exit_stack is not None:
                 self.exit_stack.close() # This exits each object saved in the stack
@@ -193,8 +182,37 @@ Q: What if, rather than using a Multicast Expert socket inside a single ``with``
 With this setup, the socket will be opened when you call ``init()``, and will stay open until someone calls ``deinit()``.  Note however that this transfers the responsibility for closing the socket onto you: if you forget to call ``deinit()`` before you're done using the class, the socket could stay open longer than intended.
 
 Q: Are there limits to how many multicast addresses I can subscribe to?
-    A: On Linux, by default you are limited to a maximum of 20 multicast address subscriptions per socket. If you exceed that, you will get an exception like "Errno 105: No buffer space available" when entering your McastRxSocket. However, you can fix this by increasing the ``net.ipv4.igmp_max_memberships`` option, as described `here <https://blog.mphomphego.co.za/blog/2017/06/28/why-am-i-getting-errno105-no-buffer-space-available-when-subscribing-to-multicast-addresses.html>`__. Alternately, you could create multiple ``McastRxSocket``s that subscribe to no more than 20 groups each.
+    A: On Linux, by default you are limited to a maximum of 20 multicast address subscriptions per socket. If you exceed that, you will get an exception like "Errno 105: No buffer space available" when entering your McastRxSocket. However, you can fix this by increasing the ``net.ipv4.igmp_max_memberships`` option, as described `here <https://blog.mphomphego.co.za/blog/2017/06/28/why-am-i-getting-errno105-no-buffer-space-available-when-subscribing-to-multicast-addresses.html>`__. Alternately, you could create multiple ``McastRxSocket`` instances that subscribe to no more than 20 groups each.
 
     As far as I am aware, there are no other hard limits on number of multicast subscriptions per socket or per machine, but I will keep this page updated if I run into any!
 
     However, most network switches have a limited number of multicast groups that they can keep track of, usually in the 1,000s-10,000s. So, if you plan to use over 1000 multicast addresses in your network, you should check with your switch hardware and see what its limitations are.
+
+FAQ - Mac-Specific
+==================
+Q: Can I use multicast on MacOS 15 (Sequoia) and later?
+    A: MacOS 15 introduced strict limitations on multicast packets -- all access to the "local network" is now `disallowed by default to applications <https://developer.apple.com/forums/thread/663875>`__, including all multicast transmission and reception. This will likely manifest as receiving nothing on Rx sockets and as getting an "OSError: [Errno 65] No route to host" exception when trying to send using a Tx socket. This will likely happen when using all non-loopback interfaces.
+
+    The easiest workaround for this on your local machine is to run all scripts that use multicast with ``sudo`` . This will remove the restriction and allow your code to work properly. The more correct way to do this is to grant the multicast entitlement to the Python interpreter -- `this <https://apple.stackexchange.com/a/478733>`__ seems like a decent guide though I have not tried it myself.
+
+Q: I am getting a weird OSError trying to open a multicast socket on Mac, like "[Errno 8] Exec format error" or "[Errno 12] Cannot allocate memory"
+    A: This seems to be a bug in MacOS where setting socket options just fails for no apparent reason some percentage of the time (1-10%). I've only seen this in Github Actions runners, but I don't know exactly what causes it to manifest. Seems like `a bug has been filed with Apple by OpenJDK <https://bugs.openjdk.org/browse/JDK-8144003>`__, so we will need to watch this going forward.
+
+    So far, the only workaround I have found is to just retry the failing tests until it works.
+
+FAQ - Linux-Specific
+====================
+
+Q: Why are my multicasts to the loopback device not going through in Linux?
+    A: Linux seems to be very picky about what it allows through loopback.  First of all, you need to use ``ip route`` to add a route directing your multicast address to the ``lo`` interface.  For example, the command ``sudo ip route add 239.2.2.0/24 dev lo`` would allow any multicasts in the 239.2.2.x range through loopback.
+
+    Additionally, for IPv6, I have found that multicasts to addresses that don't start with ``ffx1`` for any value of x (i.e. non-interface-local addresses) do not seem to be sent on loopback.  Still trying to find any document explaining this behavior...
+
+Q: My multicasts aren't being received in Linux, even though I see them coming in in packet dumps.
+    A: On Linux, you must also be careful of a kernel feature called Reverse Path Filtering (RPF).  You see, in most cases, multicast doesn't care about unicast IPs or subnets -- you can quite easily have a machine with IP 10.0.0.1 send multicasts to 192.168.1.2, even though those are on different subnets so they can't normally communicate.  However, RPF throws a wrench in this.  In its default "loose" mode (setting 2), it blocks reception of IP packets if they come from an IP address not reachable by any interface.  So, for example, if you receive a multicast from 10.0.0.1 but you only have routes in your routing table for 192.168.x.x IP addresses, the kernel will summarily drop the packet.  The easiest fix is to label one of your network interfaces as a default route.  This makes all IP addresses reachable from an interface, so all packets will be able to get by the check.
+
+    RPF's "strict" mode (setting 1) is even worse.  It applies the same check, but on a per-interface level.  So, in order to receive packets from multicast address X, each individual interface must have a routing rule permitting it to send packets to X.  If this is too much of a pain to set up, you can turn RPF off using sysctl (`this seems like a decent guide <https://access.redhat.com/solutions/53031#:~:text=rp_filter%20parameter%20only%20has%20two,default%20is%201%20(loose).>`_).  Just remember to change it both for the "all" interface and for whichever interfaces you want to affect -- the kernel takes the stricter of the two values.
+    
+    Another common issue is, if you have two NICs connected to each other on the same machine and want to send packets between them, you will need to change the `ipv4.accept_local <https://sysctl-explorer.net/net/ipv4/accept_local/>`_ setting, e.g. ``sudo sh -c "echo 1 > /proc/sys/net/ipv4/conf/all/accept_local"`` (note that additional work is needed to make this persist across reboots)
+
+    Last but not least, you may also want to check any firewalls (firewalld/ufw/iptables) and see if those are blocking multicast packets.
