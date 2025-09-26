@@ -24,9 +24,6 @@ classifiers = [
   "Intended Audience :: Developers",
   "Topic :: System :: Networking",
 
-  # Pick your license as you wish (see also "license" above)
-  "License :: OSI Approved :: MIT License",
-
   # Specify the Python versions you support here.
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.9",
@@ -134,6 +131,7 @@ ignore = [
     'PERF401', # Allow for loops that could be comprehensions. Sometimes this makes code easier to understand.
     'S104',    # Allow binding sockets to the wildcard interface. In our case, we apply socket options to those sockets so that they are restricted to specific interfaces and mcast IPs
     'PLR5501', # Stop collapsing my if statements!
+    'TC006',   # Allow unquoted types passed to typing.cast()
 ]
 
 [tool.ruff.lint.flake8-quotes]
