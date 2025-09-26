@@ -101,7 +101,7 @@ The following block shows how to create a Tx socket and send some data:
 ...     mcast_tx_sock.sendto(b'Hello World', ('239.1.2.3', 12345))
 
 .. attention::
-    This code will not work on MacOS 15+ without additional setup. See the "FAQ - Mac Specific" section below for more details.
+    This code will not work on MacOS 15+ without additional setup. See the "FAQ - Mac-Specific" section below for more details.
 
 Note: when you construct the socket, you have to pass in all of the multicast IPs that you will want to use the socket to send to.  These must be known in advance in order to configure socket options correctly.
 
@@ -188,7 +188,7 @@ Q: Are there limits to how many multicast addresses I can subscribe to?
 
     However, most network switches have a limited number of multicast groups that they can keep track of, usually in the 1,000s-10,000s. So, if you plan to use over 1000 multicast addresses in your network, you should check with your switch hardware and see what its limitations are.
 
-FAQ - Mac Specific
+FAQ - Mac-Specific
 ==================
 Q: Can I use multicast on MacOS 15 (Sequoia) and later?
     MacOS 15 introduced strict limitations on multicast packets -- all access to the "local network" is now `disallowed by default to applications <https://developer.apple.com/forums/thread/663875>`__, including all multicast transmission and reception. This will likely manifest as receiving nothing on Rx sockets and as getting an "OSError: [Errno 65] No route to host" exception when trying to send using a Tx socket. This will likely happen when using all non-loopback interfaces.
