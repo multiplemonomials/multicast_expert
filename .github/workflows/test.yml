@@ -32,11 +32,14 @@ jobs:
       # Note that on Mac, we need to run with sudo (see the FAQ section in the README for details).
       # To do this, we activate the Poetry environment, then use a special sudo command that runs
       # a command with the current process's current environment variables.
+      # Also there appears to be a MacOS bug that causes random failures of setsockopt(), so we
+      # use retries to work around this.
+      # https://bugs.openjdk.org/browse/JDK-8144003
       - name: Run Pytest (Mac)
         if: ${{ matrix.os == 'macos-latest' }}
         run: |
           $(poetry env activate)
-          sudo -E env PATH="$PATH" pytest --capture=no
+          sudo -E env PATH="$PATH" pytest --retries 3 --capture=no
 
   # This job exists to run mypy on Windows and Mac, as sometimes it can turn up different errors in these cases.
   my-py:

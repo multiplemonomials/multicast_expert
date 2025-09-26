@@ -191,9 +191,14 @@ Q: Are there limits to how many multicast addresses I can subscribe to?
 FAQ - Mac-Specific
 ==================
 Q: Can I use multicast on MacOS 15 (Sequoia) and later?
-    MacOS 15 introduced strict limitations on multicast packets -- all access to the "local network" is now `disallowed by default to applications <https://developer.apple.com/forums/thread/663875>`__, including all multicast transmission and reception. This will likely manifest as receiving nothing on Rx sockets and as getting an "OSError: [Errno 65] No route to host" exception when trying to send using a Tx socket. This will likely happen when using all non-loopback interfaces.
+    A: MacOS 15 introduced strict limitations on multicast packets -- all access to the "local network" is now `disallowed by default to applications <https://developer.apple.com/forums/thread/663875>`__, including all multicast transmission and reception. This will likely manifest as receiving nothing on Rx sockets and as getting an "OSError: [Errno 65] No route to host" exception when trying to send using a Tx socket. This will likely happen when using all non-loopback interfaces.
 
     The easiest workaround for this on your local machine is to run all scripts that use multicast with ``sudo`` . This will remove the restriction and allow your code to work properly. The more correct way to do this is to grant the multicast entitlement to the Python interpreter -- `this <https://apple.stackexchange.com/a/478733>`__ seems like a decent guide though I have not tried it myself.
+
+Q: I am getting a weird OSError trying to open a multicast socket on Mac, like "[Errno 8] Exec format error" or "[Errno 12] Cannot allocate memory"
+    A: This seems to be a bug in MacOS where setting socket options just fails for no apparent reason some percentage of the time (1-10%). I've only seen this in Github Actions runners, but I don't know exactly what causes it to manifest. Seems like `a bug has been filed with Apple by OpenJDK <https://bugs.openjdk.org/browse/JDK-8144003>`__, so we will need to watch this going forward.
+
+    So far, the only workaround I have found is to just retry the failing tests until it works.
 
 FAQ - Linux-Specific
 ====================
