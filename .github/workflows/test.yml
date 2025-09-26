@@ -29,14 +29,12 @@ jobs:
         if: ${{ matrix.os != 'macos-latest' }}
         run: poetry run pytest --capture=no
 
-      # Note: Currently using pytest with retries due to intermittent (~10% of the time) failure when
-      # running unit tests on macos runners due to "exec format error" when setting socket options (???).
-      # Also note that on Mac, we need to run with sudo (see the FAQ section in the README for details)
+      # Note that on Mac, we need to run with sudo (see the FAQ section in the README for details)
       - name: Run Pytest (Mac)
         if: ${{ matrix.os == 'macos-latest' }}
         run: |
           $(poetry env activate)
-          sudo -E env PATH="$PATH" pytest --retries 3 --capture=no
+          sudo -E env PATH="$PATH" pytest --capture=no
 
   # This job exists to run mypy on Windows and Mac, as sometimes it can turn up different errors in these cases.
   my-py:
