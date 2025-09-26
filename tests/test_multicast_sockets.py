@@ -578,6 +578,10 @@ async def test_async_v4() -> None:
 
             # Make sure we can send a packet to just one of the interfaces and it gets received
             loopback_tx_socket.sendto(b"Test 1", (mcast_address_v4, port))
+
+            # Wait for a small amount of time, saw at least one TimeoutError here in CI without this
+            await asyncio.sleep(0.01)
+
             assert await rx_socket.recv() == b"Test 1"
 
             # There should NOT be any packets left in the socket now
@@ -587,6 +591,9 @@ async def test_async_v4() -> None:
             # Now send one packet to each of the interfaces
             loopback_tx_socket.sendto(b"Test 2", (mcast_address_v4, port))
             external_iface_tx_socket.sendto(b"Test 3", (mcast_address_v4, port))
+
+            # Wait for a small amount of time, saw at least one TimeoutError here in CI without this
+            await asyncio.sleep(0.01)
 
             # Expect to receive two packets (order undefined)
             results = set()
