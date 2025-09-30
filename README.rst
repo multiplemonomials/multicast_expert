@@ -100,9 +100,6 @@ The following block shows how to create a Tx socket and send some data:
 >>> with multicast_expert.McastTxSocket(socket.AF_INET, mcast_ips=['239.1.2.3'], iface='192.168.0.248') as mcast_tx_sock:
 ...     mcast_tx_sock.sendto(b'Hello World', ('239.1.2.3', 12345))
 
-.. attention::
-    This code will not work on MacOS 15+ without additional setup. See the "FAQ - Mac-Specific" section below for more details.
-
 Note: when you construct the socket, you have to pass in all of the multicast IPs that you will want to use the socket to send to.  These must be known in advance in order to configure socket options correctly.
 
 Note 2: If you omitted the iface= argument, the get_default_gateway_iface() function would have been called to guess the interface to use.  So, we could have omitted this argument for the same result. However, you should pass this argument in most real usage, or at least make it configurable by the user. In addition to the interface IP address, you can pass the interface name or an IfaceInfo dataclass received from scan_interfaces().
@@ -191,9 +188,11 @@ Q: Are there limits to how many multicast addresses I can subscribe to?
 FAQ - Mac-Specific
 ==================
 Q: Can I use multicast on MacOS 15 (Sequoia) and later?
-    A: MacOS 15 introduced strict limitations on multicast packets -- all access to the "local network" is now `disallowed by default to applications <https://developer.apple.com/forums/thread/663875>`__, including all multicast transmission and reception. This will likely manifest as receiving nothing on Rx sockets and as getting an "OSError: [Errno 65] No route to host" exception when trying to send using a Tx socket. This will likely happen when using all non-loopback interfaces.
+    A: Yes, with some caveats. MacOS 15 introduced `limitations on local network access <https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy>`__, which includes all multicast transmission and reception. This means that when your app tries to use multicast for the first time, the OS *should* pop up a dialog that says something like "Allow Python to find devices on local networks", and clicking OK to this will grant multicast access permanently. Local network access is also *supposed* to be auto-granted to programs being run from an SSH session, as well as any applications running as root.
 
-    The easiest workaround for this on your local machine is to run all scripts that use multicast with ``sudo`` . This will remove the restriction and allow your code to work properly. The more correct way to do this is to grant the multicast entitlement to the Python interpreter -- `this <https://apple.stackexchange.com/a/478733>`__ seems like a decent guide though I have not tried it myself.
+    However, this permission is *not* granted to applications running in GitHub Actions, and `apple has not added a way for GitHub to fix this <https://github.com/actions/runner-images/issues/10924>`__, so if you are running CI tests that use multicast you will very likely hit issues here. This will likely manifest as receiving nothing on Rx sockets and as getting an "OSError: [Errno 65] No route to host" exception when trying to send using a Tx socket.
+
+    For now, the only possible fix is to run your CI tests using sudo when on MacOS. That's what we do for this project.
 
 Q: I am getting a weird OSError trying to open a multicast socket on Mac, like "[Errno 8] Exec format error" or "[Errno 12] Cannot allocate memory"
     A: This seems to be a bug in MacOS where setting socket options just fails for no apparent reason some percentage of the time (1-10%). I've only seen this in Github Actions runners, but I don't know exactly what causes it to manifest. Seems like `a bug has been filed with Apple by OpenJDK <https://bugs.openjdk.org/browse/JDK-8144003>`__, so we will need to watch this going forward.
