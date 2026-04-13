@@ -3,7 +3,7 @@ name = "multicast_expert"
 
 # Note: I would like to set this to ">=3.9", but because docsig (+ maybe other dependencies) set this to
 # "~=3.9", so Poetry won't solve the versions since it cannot find a version of docsig that works for Python >=4
-requires-python = "~=3.9"
+requires-python = "~=3.10"
 
 version = "1.6.0"
 description = "A library to take the fiddly parts out of multicast networking!"
@@ -26,7 +26,6 @@ classifiers = [
 
   # Specify the Python versions you support here.
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
