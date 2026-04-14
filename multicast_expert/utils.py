@@ -3,7 +3,6 @@ from __future__ import annotations
 import ipaddress
 import platform
 import socket
-from typing import Union
 
 # docsig: disable
 
@@ -16,11 +15,11 @@ is_mac = platform.system() == "Darwin"
 # For IPv6, address is a tuple of IP address (str), port number, flow info (int), and scope ID (int).
 # NOTE: Since we still support python 3.9, we cannot use new style type annotations here. We have to use the
 # old Union annotation which works in 3.9
-IPv4Or6Address = Union[tuple[str, int], tuple[str, int, int, int]]
+IPv4Or6Address = tuple[str, int] | tuple[str, int, int, int]
 
 # Type which represents a multicast address passed to a socket.
 # Accepts a string or object form of an IP address.
-MulticastAddress = Union[str, ipaddress.IPv4Address, ipaddress.IPv6Address]
+MulticastAddress = str | ipaddress.IPv4Address | ipaddress.IPv6Address
 
 
 # Exception class for this library

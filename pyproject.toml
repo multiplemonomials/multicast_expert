@@ -3,7 +3,7 @@ name = "multicast_expert"
 
 # Note: I would like to set this to ">=3.9", but because docsig (+ maybe other dependencies) set this to
 # "~=3.9", so Poetry won't solve the versions since it cannot find a version of docsig that works for Python >=4
-requires-python = "~=3.9"
+requires-python = "~=3.10"
 
 version = "1.6.0"
 description = "A library to take the fiddly parts out of multicast networking!"
@@ -26,7 +26,6 @@ classifiers = [
 
   # Specify the Python versions you support here.
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -179,6 +178,10 @@ mypy-init-return = true
 strict = true
 mypy_path = "$MYPY_CONFIG_FILE_DIR/stubs"
 
+# Some ignore comments are only used on certain platforms, triggering an "unused ignore"
+# on other platforms, so we have to resolve this catch-22
+warn_unused_ignores = false
+
 [tool.pyright]
 stubPath = "stubs"
 
@@ -187,3 +190,11 @@ stubPath = "stubs"
 # Reference here: https://pytest-asyncio.readthedocs.io/en/latest/reference/configuration.html
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+
+[tool.docsig]
+disable = [
+    # Description not starting with a capital or ending with a period.
+    # At least as of docsig 0.82.2 these seem to produce false positives.
+    "SIG305",
+    "SIG306"
+]

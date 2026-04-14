@@ -10,19 +10,19 @@ import sys
 if sys.version_info < (3, 12, 0):
     if platform.system() == "Windows":
         if not hasattr(socket, "IP_ADD_SOURCE_MEMBERSHIP"):
-            socket.IP_ADD_SOURCE_MEMBERSHIP = 15  # type: ignore[attr-defined]
+            socket.IP_ADD_SOURCE_MEMBERSHIP = 15  # type: ignore[attr-defined, misc]
         if not hasattr(socket, "IP_DROP_SOURCE_MEMBERSHIP"):
-            socket.IP_DROP_SOURCE_MEMBERSHIP = 16  # type: ignore[attr-defined]
+            socket.IP_DROP_SOURCE_MEMBERSHIP = 16  # type: ignore[attr-defined, misc]
     elif platform.system() == "Darwin":
         if not hasattr(socket, "IP_ADD_SOURCE_MEMBERSHIP"):
-            socket.IP_ADD_SOURCE_MEMBERSHIP = 70  # type: ignore[attr-defined]
+            socket.IP_ADD_SOURCE_MEMBERSHIP = 70  # type: ignore[attr-defined, misc]
         if not hasattr(socket, "IP_DROP_SOURCE_MEMBERSHIP"):
-            socket.IP_DROP_SOURCE_MEMBERSHIP = 71  # type: ignore[attr-defined]
+            socket.IP_DROP_SOURCE_MEMBERSHIP = 71  # type: ignore[attr-defined, misc]
     else:  # Assume Linux/Unix
         if not hasattr(socket, "IP_ADD_SOURCE_MEMBERSHIP"):
-            socket.IP_ADD_SOURCE_MEMBERSHIP = 39  # type: ignore[attr-defined]
+            socket.IP_ADD_SOURCE_MEMBERSHIP = 39  # type: ignore[attr-defined, misc]
         if not hasattr(socket, "IP_DROP_SOURCE_MEMBERSHIP"):
-            socket.IP_DROP_SOURCE_MEMBERSHIP = 40  # type: ignore[attr-defined]
+            socket.IP_DROP_SOURCE_MEMBERSHIP = 40  # type: ignore[attr-defined, misc]
 
 # Localhost / loopback addresses, for convenience
 LOCALHOST_IPV4 = "127.0.0.1"
