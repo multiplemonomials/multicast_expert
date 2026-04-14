@@ -178,6 +178,10 @@ mypy-init-return = true
 strict = true
 mypy_path = "$MYPY_CONFIG_FILE_DIR/stubs"
 
+# Some ignore comments are only used on certain platforms, triggering an "unused ignore"
+# on other platforms, so we have to resolve this catch-22
+warn_unused_ignores = false
+
 [tool.pyright]
 stubPath = "stubs"
 
