@@ -6,7 +6,7 @@ import warnings
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv4Interface, IPv6Address, IPv6Interface
-from typing import Union, cast
+from typing import cast
 
 import netifaces
 
@@ -87,7 +87,7 @@ class IfaceInfo:
         raise KeyError(message)
 
 
-IfaceSpecifier = Union[str, IPv4Address, IPv6Address, IfaceInfo]
+IfaceSpecifier = str | IPv4Address | IPv6Address | IfaceInfo
 """ Type for something that can specify an interface in multicast expert.
 
 May be:
