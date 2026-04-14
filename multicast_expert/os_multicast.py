@@ -171,4 +171,4 @@ def add_source_specific_memberships(
                     source_ip.packed,  # imr_sourceaddr
                 )
 
-            mcast_socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_SOURCE_MEMBERSHIP, mreq_source_bytes)
+            mcast_socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_SOURCE_MEMBERSHIP, mreq_source_bytes)  # type: ignore[attr-defined]
