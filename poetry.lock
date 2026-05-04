@@ -233,19 +233,19 @@ files = [
 
 [[package]]
 name = "docsig"
-version = "0.83.0"
+version = "0.84.0"
 description = "Check signature params for proper documentation"
 optional = false
 python-versions = "<4.0,>=3.10"
 groups = ["dev"]
 files = [
-    {file = "docsig-0.83.0-py3-none-any.whl", hash = "sha256:c0488da80accc11d3cf8babc2eda238e3a9441393f292bc3737162745100db78"},
-    {file = "docsig-0.83.0.tar.gz", hash = "sha256:b9263bc883b0b24fa4de0c81275c13f2d121622874f4852ee8d250103d1bb791"},
+    {file = "docsig-0.84.0-py3-none-any.whl", hash = "sha256:3633ca70c9ef3154549f75d597447b4965cfca283f37406e9cdf4372843960a4"},
+    {file = "docsig-0.84.0.tar.gz", hash = "sha256:6b5db6c1e710dc369a8ae2fae165b3b1670c56f91de621dc53ec1e6f995acb42"},
 ]
 
 [package.dependencies]
 astroid = ">=4.0.2,<5.0.0"
-pathspec = ">=0.12.1,<1.1.0"
+pathspec = ">=0.12.1,<1.2.0"
 Sphinx = ">=7,<9"
 tomli = ">=2.0.1,<3.0.0"
 wcmatch = ">=8.5.2,<11.0.0"
@@ -1107,4 +1107,4 @@ bracex = ">=2.1.1"
 [metadata]
 lock-version = "2.1"
 python-versions = "~=3.10"
-content-hash = "e99b0ec4c0115fd02f743a7867a143c69d8fa73c9a622b07dc8593d1bb528348"
+content-hash = "bfe0977d00110dfbf4e13e68806bc77711f1c89f352d29b26e864b1c3db5fb9b"
