@@ -48,7 +48,7 @@ pytest = ">=9.1.1"
 pytest-mock = ">=3.13.0"
 pytest-asyncio = ">=1.4.0"
 mypy = ">=2.1.0"
-ruff = '>=0.15.15'
+ruff = '>=0.15.20'
 docsig = ">=0.88.0"
 pytest-retry = ">=1.7.0"
 
