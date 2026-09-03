@@ -99,14 +99,14 @@ files = [
 
 [[package]]
 name = "docsig"
-version = "0.92.2"
+version = "0.96.0"
 description = "Check signature params for proper documentation"
 optional = false
 python-versions = ">=3.10"
 groups = ["dev"]
 files = [
-    {file = "docsig-0.92.2-py3-none-any.whl", hash = "sha256:aec3ba435abb2658a32801ea08b8054ba9250b4955585101932db43856d0b81c"},
-    {file = "docsig-0.92.2.tar.gz", hash = "sha256:c64d825763903fd3ff32247fb4a4e52ef5777dbae796967b699566d51ebc4763"},
+    {file = "docsig-0.96.0-py3-none-any.whl", hash = "sha256:3b028209335a6614d7408c7c81322e3fe66e053c35d3266d53dc2483686cfcdb"},
+    {file = "docsig-0.96.0.tar.gz", hash = "sha256:5aadcc3df9aa5195ecd20dc0f1093df8a5a1cbda43d29e012f8dbae70e07e383"},
 ]
 
 [package.dependencies]
@@ -631,4 +631,4 @@ bracex = ">=3.0"
 [metadata]
 lock-version = "2.1"
 python-versions = "~=3.10"
-content-hash = "db2cc188c0035001012cb5628de2c371f2c6d081a8dc8c76f349a91e5fca2d4a"
+content-hash = "b597d0bbb2b253c3a1fefc62cbd2367772273e24d0f32764734797bd9dde7f09"
