@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install Poetry
-        uses: Gr1N/setup-poetry@v9
+        uses: Gr1N/setup-poetry@v10
       - name: Install project
         run: poetry install --no-interaction
       - name: Configure IP routes # See "Development Setup.md"
@@ -59,7 +59,7 @@ jobs:
           # but we need at least py3.11 for the async code to work.
           python-version: "3.11"
       - name: Install Poetry
-        uses: Gr1N/setup-poetry@v9
+        uses: Gr1N/setup-poetry@v10
       - name: Install project
         run: poetry install --no-interaction
       - name: Run Mypy
