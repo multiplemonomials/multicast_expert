@@ -47,7 +47,7 @@ build-backend = "poetry.core.masonry.api"
 pytest = ">=9.2.0"
 pytest-mock = ">=3.17.0"
 pytest-asyncio = ">=1.4.0"
-mypy = ">=2.3.1"
+mypy = ">=2.4.1"
 ruff = '>=0.17.0'
 docsig = ">=0.96.0"
 pytest-retry = ">=1.7.0"
